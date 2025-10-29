@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chrono Pro</title>
+  <meta name="description" content="Chrono d'entraînement personnalisé">
+  <meta name="theme-color" content="#007bff">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <script>
+	// Force le reload si SW mis à jour
+	if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => reg.update());
+	}
+  </script>
+  <style>
+    body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
+    #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
+    #exercise-image{width:100%;max-width:300px;height:auto;border-radius:10px;margin-bottom:20px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+    #timer{font-size:56px;font-weight:bold;margin:20px 0;color:#007bff}
+    #exercise-info,#series-info,#status{font-size:20px;margin:10px 0;font-weight:600}
+    #series-info{color:#555;font-weight:400}
+    button{padding:12px 20px;font-size:16px;margin:6px 4px;cursor:pointer;border:none;border-radius:6px;background:#007bff;color:white;transition:all .2s}
+    button:hover:not(:disabled){background:#0056b3;transform:translateY(-1px)}
+    button:disabled{background:#ccc;cursor:not-allowed;transform:none}
+    .nav-buttons{display:flex;justify-content:center;gap:10px;margin:15px 0}
+    #config-panel{display:none;margin-top:25px;padding:20px;background:#f8f9fa;border-radius:10px;width:90%;max-width:560px;box-shadow:0 4px 8px rgba(0,0,0,.1)}
+    #exercise-list{max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;padding:8px;background:white;margin-bottom:15px}
+    .exercise-entry{border-bottom:1px solid #eee;padding:10px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px}
+    .exercise-entry:last-child{border-bottom:none}
+    .exercise-entry input{padding:6px;font-size:13px;width:90px}
+    #total-time-info,#autosave-status{font-size:14px;margin-top:8px}
+    #total-time-info{color:#007bff;font-weight:600}
+    #autosave-status{color:#28a745;opacity:0;transition:opacity .3s}
+    #install-btn{display:none;background:#28a745;padding:12px 24px;margin:10px auto;font-size:16px;border-radius:6px}
+    #install-btn:hover{background:#218838}
+  </style>
+</head>
+<body>
+  <div id="workout-container">
+    <img id="exercise-image" src="" alt="Exercice">
+    <div id="exercise-info"></div>
+    <div id="series-info"></div>
+    <div id="timer">00:10</div>
+    <div id="status">Prêt à commencer</div>
+    <div class="nav-buttons">
+      <button id="prev-btn" onclick="prevSeries()">Précédent</button>
+      <button id="next-btn" onclick="nextSeries()">Suivant</button>
+    </div>
+    <button id="start-btn" onclick="startWorkout()">Démarrer</button>
+    <button onclick="pauseWorkout()">Pause</button>
+    <button onclick="resetWorkout()">Réinitialiser</button>
+    <button onclick="toggleConfigPanel()">Configurer</button>
+  </div>
+
+  <div id="config-panel">
+    <h2>Configurer</h2>
+    <label>Séries : <input type="number" id="total-series" value="30" min="1"></label><br>
+    <label>Mise en place (s) : <input type="number" id="setup-time" value="10" min="0"></label><br>
+    <label>Séquence : <input type="text" id="sequence-input" value="1-2-3"></label>
+    <h3>Exercices</h3>
+    <div id="exercise-list"></div>
+    <button onclick="addExercise()">Ajouter</button>
+    <button onclick="saveConfig()">Enregistrer</button>
+    <button onclick="exportConfig()">Exporter</button>
+    <label style="display:block;margin-top:10px;">Importer : <input type="file" id="import-config" accept=".json"></label>
+    <div id="total-time-info">Temps total : 0m 0s</div>
+    <div id="autosave-status"></div>
+  </div>
+
+  <button id="install-btn">Installer l'app</button>
+
+  <script>
+    // === PWA INSTALL ===
+    let deferredPrompt;
+    const installBtn = document.getElementById('install-btn');
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'block';
+    });
+    installBtn.addEventListener('click', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+    });
+
+    // === REGISTER SERVICE WORKER ===
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW error:', err));
+      });
+    }
+
+    // === [TON CODE CHRONO ICI - IDENTIQUE À AVANT] ===
+    // (Je le mets en dessous pour garder la clarté)
+    let exercises = JSON.parse(localStorage.getItem('exercises')) || [
+      {name:"Dips lestés",reps:"3–5",workTime:30,restTime:30,image:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438"},
+      {name:"Pompes piquées / HSPU",reps:"4–6",workTime:30,restTime:30,image:"https://images.unsplash.com/photo-1517838277536-f5f99be501cd"},
+      {name:"Pompes lestées",reps:"6–8",workTime:30,restTime:30,image:"https://images.unsplash.com/photo-1530822847156-5df3f8f02b07"}
+    ];
+    let sequence = localStorage.getItem('sequence') || "1-2-3";
+    let totalSeries = parseInt(localStorage.getItem('totalSeries')) || 30;
+    let setupTime = parseInt(localStorage.getItem('setupTime')) || 10;
+
+    let currentSeries = 0, isWorking = true, timeLeft = setupTime, timerInterval = null;
+    let isPaused = false, audioContext = null, isSetupPhase = true;
+
+    const beep = (f=800,d=200) => {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioContext.createOscillator(), g = audioContext.createGain();
+      o.connect(g); g.connect(audioContext.destination);
+      o.frequency.value = f; o.type = 'sine';
+      g.gain.setValueAtTime(0.3, audioContext.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + d/1000);
+      o.start(); o.stop(audioContext.currentTime + d/1000);
+    };
+
+    const updateStartButton = () => document.getElementById("start-btn").textContent = isPaused ? "Reprendre" : "Démarrer";
+    const updateNavButtons = () => {
+      document.getElementById("prev-btn").disabled = isSetupPhase || currentSeries === 0;
+      document.getElementById("next-btn").disabled = isSetupPhase || currentSeries >= totalSeries - 1;
+    };
+
+    const renderExerciseList = () => {
+      const list = document.getElementById("exercise-list");
+      list.innerHTML = "";
+      exercises.forEach((ex, i) => {
+        const div = document.createElement("div");
+        div.className = "exercise-entry";
+        div.innerHTML = `
+          <input type="text" value="${ex.name}" onchange="updateExercise(${i}, 'name', this.value)">
+          <input type="text" value="${ex.reps}" onchange="updateExercise(${i}, 'reps', this.value)">
+          <input type="number" value="${ex.workTime}" onchange="updateExercise(${i}, 'workTime', this.value)">
+          <input type="number" value="${ex.restTime}" onchange="updateExercise(${i}, 'restTime', this.value)">
+          <input type="text" value="${ex.image}" onchange="updateExercise(${i}, 'image', this.value)">
+          <input type="file" accept="image/*" onchange="updateExerciseImage(${i}, this.files[0])">
+          <button onclick="removeExercise(${i})">Supprimer</button>
+        `;
+        list.appendChild(div);
+      });
+    };
+
+    const updateExercise = (i, field, val) => {
+      exercises[i][field] = ['workTime','restTime'].includes(field) ? parseInt(val)||30 : val;
+      saveConfig();
+    };
+
+    const updateExerciseImage = (i, file) => {
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => { exercises[i].image = e.target.result; saveConfig(); renderExerciseList(); };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    const addExercise = () => { exercises.push({name:"Nouvel exercice",reps:"0–0",workTime:30,restTime:30,image:""}); renderExerciseList(); saveConfig(); };
+    const removeExercise = i => { exercises.splice(i,1); renderExerciseList(); saveConfig(); };
+
+    const exportConfig = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({exercises,sequence,totalSeries,setupTime},null,2)], {type:'application/json'}));
+      a.download = 'workout_config.json'; a.click();
+    };
+
+    document.getElementById('import-config').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const d = JSON.parse(ev.target.result);
+            exercises = d.exercises || []; sequence = d.sequence || "1-2-3";
+            totalSeries = d.totalSeries || 30; setupTime = d.setupTime || 10;
+            saveConfig(); renderExerciseList(); updateDisplay();
+            alert("Importé !");
+          } catch { alert("Fichier invalide"); }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    const calculateTotalTime = () => {
+      let t = setupTime;
+      const seqs = sequence.split(","), cycleLen = seqs.reduce((s,seq)=>s+seq.split("-").length,0);
+      const full = Math.floor(totalSeries / cycleLen), rem = totalSeries % cycleLen;
+      let cycleTime = 0;
+      for (const seq of seqs) for (const idx of seq.split("-").map(Number)) {
+        const ex = exercises[idx-1] || exercises[0];
+        cycleTime += ex.workTime + ex.restTime;
+      }
+      t += full * cycleTime;
+      let cur = 0;
+      outer: for (const seq of seqs) for (const idx of seq.split("-").map(Number)) {
+        if (cur >= rem) break outer;
+        const ex = exercises[idx-1] || exercises[0];
+        t += ex.workTime + ex.restTime; cur++;
+      }
+      return t;
+    };
+    const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
+
+    const saveConfig = () => {
+      sequence = document.getElementById("sequence-input").value.trim() || "1";
+      totalSeries = parseInt(document.getElementById("total-series").value) || 30;
+      setupTime = parseInt(document.getElementById("setup-time").value) || 10;
+      localStorage.setItem('exercises', JSON.stringify(exercises));
+      localStorage.setItem('sequence', sequence);
+      localStorage.setItem('totalSeries', totalSeries);
+      localStorage.setItem('setupTime', setupTime);
+      document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
+      const status = document.getElementById("autosave-status");
+      status.textContent = "Sauvegardé"; status.style.opacity = 1;
+      setTimeout(() => status.style.opacity = 0, 2000);
+      updateDisplay();
+    };
+
+    const getExerciseIndex = s => {
+      const seqs = sequence.split(","), cycleLen = seqs.reduce((a,b)=>a+b.split("-").length,0);
+      const pos = s % cycleLen; let cur = 0;
+      for (const seq of seqs) for (const i of seq.split("-").map(Number)) { if (cur === pos) return i-1; cur++; }
+      return 0;
+    };
+
+    const updateDisplay = () => {
+      const img = document.getElementById("exercise-image");
+      const info = document.getElementById("exercise-info");
+      const series = document.getElementById("series-info");
+      const status = document.getElementById("status");
+      if (isSetupPhase) {
+        info.textContent = "Préparation"; series.textContent = "";
+        img.src = "https://i.imgur.com/IHCEoad.png"; status.textContent = "Mise en place";
+      } else {
+        const ex = exercises[getExerciseIndex(currentSeries)] || exercises[0];
+        info.textContent = `${ex.name} (${ex.reps})`;
+        series.textContent = `Série ${currentSeries+1} / ${totalSeries}`;
+        img.src = ex.image || "https://via.placeholder.com/300?text=Exercice";
+        status.textContent = isWorking ? "Travail" : "Repos";
+      }
+      updateTimerDisplay(); updateStartButton(); updateNavButtons();
+    };
+
+    const updateTimerDisplay = () => {
+      const m = String(Math.floor(timeLeft/60)).padStart(2,"0");
+      const s = String(timeLeft%60).padStart(2,"0");
+      document.getElementById("timer").textContent = `${m}:${s}`;
+    };
+
+    const prevSeries = () => {
+      if (isSetupPhase || currentSeries === 0) return;
+      if (isWorking) { isWorking = false; timeLeft = exercises[getExerciseIndex(currentSeries)].restTime; }
+      else { currentSeries--; isWorking = true; timeLeft = exercises[getExerciseIndex(currentSeries)].workTime; }
+      updateDisplay(); beep(600,200);
+    };
+
+    const nextSeries = () => {
+      if (isSetupPhase || currentSeries >= totalSeries-1) return;
+      if (isWorking) { isWorking = false; timeLeft = exercises[getExerciseIndex(currentSeries)].restTime; }
+      else { currentSeries++; isWorking = true; timeLeft = exercises[getExerciseIndex(currentSeries)].workTime; }
+      updateDisplay(); beep(800,200);
+    };
+
+    const timerTick = () => {
+      if (timeLeft <= 0) {
+        if (isSetupPhase) { beep(600,500); isSetupPhase = false; isWorking = true; timeLeft = exercises[getExerciseIndex(currentSeries)].workTime; updateDisplay(); beep(800,300); }
+        else if (isWorking) { beep(600,500); isWorking = false; currentSeries++; if (currentSeries >= totalSeries) { clearInterval(timerInterval); timerInterval = null; document.getElementById("status").textContent = "Terminé !"; beep(1000,1000); updateStartButton(); return; } timeLeft = exercises[getExerciseIndex(currentSeries)].restTime; updateDisplay(); }
+        else { isWorking = true; timeLeft = exercises[getExerciseIndex(currentSeries)].workTime; updateDisplay(); beep(800,300); }
+      } else if (timeLeft <= 5 && timeLeft > 0) beep(400,200);
+      timeLeft--; updateTimerDisplay();
+    };
+
+    const startWorkout = () => {
+      if (timerInterval) return;
+      if (isPaused) { isPaused = false; timerInterval = setInterval(timerTick,1000); updateDisplay(); return; }
+      isSetupPhase = true; timeLeft = setupTime; currentSeries = 0; updateDisplay(); beep(800,300); timerInterval = setInterval(timerTick,1000);
+    };
+
+    const pauseWorkout = () => {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; isPaused = true; document.getElementById("status").textContent = "En pause"; updateStartButton(); }
+    };
+
+    const resetWorkout = () => {
+      clearInterval(timerInterval); timerInterval = null;
+      currentSeries = 0; isWorking = true; isSetupPhase = true; isPaused = false;
+      timeLeft = setupTime; updateDisplay(); document.getElementById("status").textContent = "Prêt à commencer";
+    };
+
+    const toggleConfigPanel = () => {
+      const p = document.getElementById("config-panel");
+      p.style.display = p.style.display === "none" ? "block" : "none";
+      renderExerciseList();
+      document.getElementById("sequence-input").value = sequence;
+      document.getElementById("total-series").value = totalSeries;
+      document.getElementById("setup-time").value = setupTime;
+      saveConfig();
+    };
+
+    setInterval(() => { if (!isSetupPhase && !isPaused) saveConfig(); }, 30000);
+
+    renderExerciseList(); updateDisplay();
+    document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
+  </script>
+</body>
+</html>
