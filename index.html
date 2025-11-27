@@ -273,7 +273,7 @@ function renderExercises() {
       <input type="number" value="${ex.workTime}" onchange="exercises[${i}].workTime=parseInt(this.value)||30;saveAll()">
       <input type="text" value="${ex.image}" onchange="exercises[${i}].image=this.value;saveAll()">
       <input type="file" accept="image/*" onchange="((f)=>{if(f){const r=new FileReader();r.onload=e=>{exercises[${i}].image=e.target.result;saveAll();renderExercises()};r.readAsDataURL(f)}})(this.files[0])">
-      <button class="delete-btn" title="Supprimer" onclick="exercises.splice(${i},1);renderExercises();saveAll()">Delete</button>
+      <button class="delete-btn" title="Supprimer" onclick="exercises.splice(${i},1);renderExercises();saveAll()">✕</button>
     `;
     list.appendChild(d);
   });
