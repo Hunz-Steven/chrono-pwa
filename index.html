@@ -31,19 +31,8 @@
   #autosave-status{color:#28a745;opacity:0;transition:opacity .3s}
   .help{color:#666;font-size:13px;margin-top:5px;line-height:1.5}
   .legend{font-size:13px;color:#555;margin-bottom:8px}
-
-  /* BOUTON SUPPRESSION ROUGE */
-  .delete-btn {
-    background:#dc3545 !important;
-    padding:8px 12px !important;
-    min-width:40px;
-    border-radius:6px;
-    font-size:18px;
-  }
-  .delete-btn:hover {
-    background:#c82333 !important;
-    transform:translateY(-1px);
-  }
+  .delete-btn{background:#dc3545!important;padding:8px 12px!important;min-width:40px;border-radius:6px;font-size:18px}
+  .delete-btn:hover{background:#c82333!important;transform:translateY(-1px)}
 </style>
 </head>
 <body>
@@ -74,7 +63,6 @@
     • 1-2-3-P120 → enchaîne 1→2→3 puis 2 min repos<br>
     • 6x(1-P10-2-P10-3) → 6 tours avec 10s entre chaque<br>
     • 8x(1-P20) → EMOM 40s travail / 20s repos<br>
-    • 4x(1-2-P5-3-4-P90) → circuit rapide + repos long entre tours
   </div>
 
   <h3>Exercices</h3>
@@ -90,22 +78,31 @@
 </div>
 
 <script>
-// === FONCTIONS UTILITAIRES ===
-const formatMMSS = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
-
-const beep = (f=800,d=200) => {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const o = ctx.createOscillator(), g = ctx.createGain();
+// ========== AUDIO (fix Android) ==========
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const unlock = () => { audioCtx.resume(); };
+    document.body.addEventListener('touchstart', unlock, {once:true});
+    document.body.addEventListener('click', unlock, {once:true});
+  }
+  return audioCtx;
+}
+const beep = (freq = 800, duration = 200) => {
+  const ctx = getAudioContext();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
   o.connect(g); g.connect(ctx.destination);
-  o.frequency.value = f;
+  o.frequency.value = freq;
+  o.type = 'sine';
   g.gain.setValueAtTime(0.001, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d/1000);
-  o.start(); o.stop(ctx.currentTime + d/1000);
+  g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration/1000);
+  o.start(); o.stop(ctx.currentTime + duration/1000);
 };
 
-// === DONNÉES ===
+// ========== DONNÉES ==========
 let exercises = JSON.parse(localStorage.getItem('chronoPro_exercises')) || [
   {name:"Dips lestés",        reps:"3–5",  workTime:40, image:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438"},
   {name:"HSPU / Pompes piquées", reps:"4–6", workTime:40, image:"https://images.unsplash.com/photo-1517838277536-f5f99be501cd"},
@@ -122,7 +119,7 @@ let timeLeft = setupTime;
 let timerInterval = null;
 let isPaused = false;
 
-// === PARSER SÉQUENCE ===
+// ========== PARSER + TEMPS TOTAL ==========
 function parseSequence(input) {
   let rounds = 1;
   let clean = input.trim();
@@ -132,17 +129,11 @@ function parseSequence(input) {
   clean.split('-').forEach(p => {
     p = p.trim();
     if (!p) return;
-    if (p.toUpperCase().startsWith('P')) {
-      blocks.push({type:'rest', duration:parseInt(p.slice(1))||0});
-    } else {
-      const id = parseInt(p);
-      if (id>0) blocks.push({type:'exercise', id});
-    }
+    if (p.toUpperCase().startsWith('P')) blocks.push({type:'rest', duration:parseInt(p.slice(1))||0});
+    else { const id = parseInt(p); if (id>0) blocks.push({type:'exercise', id}); }
   });
   return {blocks, rounds};
 }
-
-// === TEMPS TOTAL ===
 function calculateTotalTime() {
   const {blocks, rounds} = parseSequence(sequenceInputValue);
   let t = setupTime;
@@ -152,8 +143,10 @@ function calculateTotalTime() {
   }
   return t;
 }
+const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
+const formatMMSS = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-// === AFFICHAGE ===
+// ========== AFFICHAGE ==========
 function updateDisplay() {
   const img = document.getElementById("exercise-image");
   const info = document.getElementById("exercise-info");
@@ -165,80 +158,82 @@ function updateDisplay() {
     series.textContent = "";
     img.src = "https://i.imgur.com/IHCEoad.png";
     status.textContent = "Mise en place";
-    document.getElementById("timer").textContent = formatMMSS(timeLeft);
-    return;
-  }
-
-  const {blocks, rounds} = parseSequence(sequenceInputValue);
-  const totalBlocks = blocks.length * rounds;
-
-  if (currentBlockIndex >= totalBlocks) {
-    info.textContent = "FINI !";
-    series.textContent = `Terminé en ${rounds} tour${rounds>1?'s':''}`;
-    img.src = "https://i.imgur.com/0pazk7c.png";
-    status.textContent = "Bravo !";
-    document.getElementById("timer").textContent = "00:00";
-    return;
-  }
-
-  const idx = currentBlockIndex % blocks.length;
-  const round = Math.floor(currentBlockIndex / blocks.length) + 1;
-  const block = blocks[idx];
-
-  series.textContent = `Tour ${round}/${rounds} • Bloc ${idx+1}/${blocks.length}`;
-
-  if (block.type === 'exercise') {
-    const ex = exercises[block.id-1] || exercises[0];
-    info.textContent = `${ex.name} (${ex.reps})`;
-    img.src = ex.image || "https://via.placeholder.com/300?text=Exo";
-    status.textContent = "TRAVAIL";
   } else {
-    info.textContent = "Repos";
-    img.src = "https://i.imgur.com/IHCEoad.png";
-    status.textContent = `Repos ${block.duration}s`;
+    const {blocks, rounds} = parseSequence(sequenceInputValue);
+    const totalBlocks = blocks.length * rounds;
+    if (currentBlockIndex >= totalBlocks) {
+      info.textContent = "FINI !";
+      series.textContent = `Terminé en ${rounds} tour${rounds>1?'s':''}`;
+      img.src = "https://i.imgur.com/0pazk7c.png";
+      status.textContent = "Bravo !";
+    } else {
+      const idx = currentBlockIndex % blocks.length;
+      const round = Math.floor(currentBlockIndex / blocks.length) + 1;
+      const block = blocks[idx];
+      series.textContent = `Tour ${round}/${rounds} • Bloc ${idx+1}/${blocks.length}`;
+      if (block.type === 'exercise') {
+        const ex = exercises[block.id-1] || exercises[0];
+        info.textContent = `${ex.name} (${ex.reps})`;
+        img.src = ex.image || "https://via.placeholder.com/300?text=Exo";
+        status.textContent = "TRAVAIL";
+      } else {
+        info.textContent = "Repos";
+        img.src = "https://i.imgur.com/IHCEoad.png";
+        status.textContent = `Repos ${block.duration}s`;
+      }
+    }
   }
   document.getElementById("timer").textContent = formatMMSS(timeLeft);
 }
 
-// === TIMER ===
+// ========== TIMER ==========
+function playBlockStartSound(isWork) {
+  if (isWork) beep(880, 350);
+  else beep(660, 450);
+}
 function advanceBlock() {
   currentBlockIndex++;
   const {blocks, rounds} = parseSequence(sequenceInputValue);
   if (currentBlockIndex >= blocks.length * rounds) {
     clearInterval(timerInterval); timerInterval = null;
-    beep(1200,1200);
+    beep(1200, 400);
+    setTimeout(() => beep(1400, 400), 500);
+    setTimeout(() => beep(1600, 800), 1000);
     updateDisplay();
     return;
   }
   const block = blocks[currentBlockIndex % blocks.length];
   if (block.type === 'exercise') {
     timeLeft = exercises[block.id-1]?.workTime || 30;
-    beep(800,300);
+    playBlockStartSound(true);
   } else {
     timeLeft = block.duration;
-    beep(600,400);
+    playBlockStartSound(false);
   }
   updateDisplay();
 }
-
 function timerTick() {
   if (timeLeft > 0) {
-    if (timeLeft <= 5) beep(400,150);
+    if (timeLeft <= 5) beep(440 + timeLeft*80, 120);
     timeLeft--;
     document.getElementById("timer").textContent = formatMMSS(timeLeft);
     return;
   }
-  if (isSetupPhase) { isSetupPhase = false; currentBlockIndex = -1; }
+  if (isSetupPhase) {
+    isSetupPhase = false;
+    currentBlockIndex = -1;
+    beep(1000, 500);
+  }
   advanceBlock();
 }
 
+// ========== CONTROLES ==========
 function startWorkout() {
   if (timerInterval) return;
   if (isPaused) { isPaused = false; timerInterval = setInterval(timerTick,1000); return; }
   resetWorkout();
   timerInterval = setInterval(timerTick,1000);
 }
-
 function pauseWorkout() {
   if (timerInterval) {
     clearInterval(timerInterval); timerInterval = null;
@@ -247,19 +242,16 @@ function pauseWorkout() {
     document.getElementById("start-btn").textContent = "Reprendre";
   }
 }
-
 function resetWorkout() {
   clearInterval(timerInterval); timerInterval = null;
   isSetupPhase = true; currentBlockIndex = -1; timeLeft = setupTime; isPaused = false;
   document.getElementById("start-btn").textContent = "Démarrer";
   updateDisplay();
 }
-
-// navigation
 function prevBlock() { if (!isSetupPhase && currentBlockIndex > 0) { currentBlockIndex -= 2; advanceBlock(); } }
 function nextBlock() { if (!isSetupPhase) advanceBlock(); }
 
-// === CONFIG ===
+// ========== CONFIG ==========
 function saveAll() {
   sequenceInputValue = document.getElementById("sequence-input").value.trim();
   setupTime = parseInt(document.getElementById("setup-time").value) || 10;
@@ -271,7 +263,6 @@ function saveAll() {
   setTimeout(()=>s.style.opacity=0,2000);
   updateDisplay();
 }
-
 function renderExercises() {
   const list = document.getElementById("exercise-list"); list.innerHTML = "";
   exercises.forEach((ex,i) => {
@@ -282,13 +273,29 @@ function renderExercises() {
       <input type="number" value="${ex.workTime}" onchange="exercises[${i}].workTime=parseInt(this.value)||30;saveAll()">
       <input type="text" value="${ex.image}" onchange="exercises[${i}].image=this.value;saveAll()">
       <input type="file" accept="image/*" onchange="((f)=>{if(f){const r=new FileReader();r.onload=e=>{exercises[${i}].image=e.target.result;saveAll();renderExercises()};r.readAsDataURL(f)}})(this.files[0])">
-      <button class="delete-btn" title="Supprimer l'exercice" onclick="exercises.splice(${i},1);renderExercises();saveAll()">×</button>
+      <button class="delete-btn" title="Supprimer" onclick="exercises.splice(${i},1);renderExercises();saveAll()">Delete</button>
     `;
     list.appendChild(d);
   });
 }
 
-// boutons
+// ========== BOUTONS (la ligne qui manquait !) ==========
+document.getElementById("prev-btn").onclick = prevBlock;
+document.getElementById("next-btn").onclick = nextBlock;
+document.getElementById("start-btn").onclick = startWorkout;
+document.getElementById("pause-btn").onclick = pauseWorkout;
+document.getElementById("reset-btn").onclick = resetWorkout;
+document.getElementById("config-btn").onclick = () => {
+  const p = document.getElementById("config-panel");
+  p.style.display = p.style.display==="block" ? "none" : "block";
+  if (p.style.display==="block") {
+    document.getElementById("sequence-input").value = sequenceInputValue;
+    document.getElementById("setup-time").value = setupTime;
+    renderExercises();
+    saveAll();
+  }
+};
+
 document.getElementById("add-exercise").onclick = () => { exercises.push({name:"Nouvel exo",reps:"8-12",workTime:40,image:""}); renderExercises(); saveAll(); };
 document.getElementById("save-config").onclick = saveAll;
 document.getElementById("export-config").onclick = () => {
@@ -310,29 +317,13 @@ document.getElementById("import-config").onchange = e => {
       saveAll(); renderExercises();
       document.getElementById("sequence-input").value = sequenceInputValue;
       document.getElementById("setup-time").value = setupTime;
-      alert("Configuration importée !");
+      alert("Import réussi !");
     } catch { alert("Fichier invalide"); }
   };
   r.readAsText(file);
 };
 
-// === INIT ===
-document.getElementById("prev-btn").onclick = prevBlock;
-document.getElementById("next-btn").onclick = nextBlock;
-document.getElementById("start-btn").onclick = startWorkout;
-document.getElementById("pause-btn").onclick = pauseWorkout;
-document.getElementById("reset-btn").onclick = resetWorkout;
-document.getElementById("config-btn").onclick = () => {
-  const p = document.getElementById("config-panel");
-  p.style.display = p.style.display==="block" ? "none" : "block";
-  if (p.style.display==="block") {
-    document.getElementById("sequence-input").value = sequenceInputValue;
-    document.getElementById("setup-time").value = setupTime;
-    renderExercises();
-    saveAll();
-  }
-};
-
+// ========== INIT ==========
 renderExercises();
 updateDisplay();
 document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
