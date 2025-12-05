@@ -146,8 +146,9 @@ let isPaused = false;
 // ========== PARSER V9.1 — ROBUSTE & VALIDÉ ==========
 function parseSequence(input) {
   try {
+    // CORRECTION: P\d+ doit être testé AVANT [\d]+ pour éviter de matcher "5" au lieu de "P5"
     const tokens = input.replace(/\s/g, '')
-      .match(/\d+x\(|[\d]+|P\d+|\+|\(|\)/g) || [];
+      .match(/\d+x\(|P\d+|[\d]+|\+|\(|\)/g) || [];
     
     if (tokens.length === 0) {
       throw new Error("Séquence vide");
