@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.1</title>
+<title>Chrono Pro V9.2</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -13,7 +13,13 @@
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
-  #exercise-image{width:100%;max-width:300px;height:auto;border-radius:10px;margin-bottom:20px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  #image-container{width:100%;display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  #image-container.single{display:block}
+  #image-container img{width:100%;max-width:300px;height:auto;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  #image-container.double{display:flex;width:100%;max-width:600px;margin:0 auto;align-items:center}
+  #image-container.double > div{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+  #image-container.double img{width:100%;height:auto;min-height:200px;max-height:280px;object-fit:contain;max-width:none;background:#f5f5f5}
+  .image-label{font-size:12px;color:#666;margin-top:5px;font-weight:500}
   #timer{font-size:56px;font-weight:bold;margin:20px 0;color:#007bff}
   #exercise-info,#series-info,#status{font-size:20px;margin:10px 0;font-weight:600}
   #series-info{color:#555;font-weight:400}
@@ -39,7 +45,16 @@
 <body>
 
 <div id="workout-container">
-  <img id="exercise-image" src="https://i.imgur.com/IHCEoad.png" alt="Préparation">
+  <div id="image-container" class="single">
+    <div>
+      <img id="current-image" src="https://i.imgur.com/IHCEoad.png" alt="Exercice">
+      <div id="current-label" class="image-label"></div>
+    </div>
+    <div id="next-image-wrapper" style="display:none">
+      <img id="next-image" src="" alt="Suivant">
+      <div id="next-label" class="image-label">Prochain exercice</div>
+    </div>
+  </div>
   <div id="exercise-info">Préparation</div>
   <div id="series-info"></div>
   <div id="timer">00:10</div>
@@ -53,7 +68,7 @@
   <button id="pause-btn">Pause</button>
   <button id="reset-btn">Réinitialiser</button>
   <button id="config-btn">Configurer</button>
-  <div class="version">Chrono Pro V9.1 — Bugs corrigés ✓</div>
+  <div class="version">Chrono Pro V9.2.2 – Navigation perfectionnée ✓</div>
 </div>
 
 <div id="config-panel">
@@ -62,11 +77,11 @@
   <label>Séquence :</label>
   <input type="text" id="sequence-input" value="10x(5-P30-13-P30 + 5x(12-P30))" style="width:100%;padding:10px;font-family:monospace;font-size:15px">
   <div class="help">
-    V9.1 = syntaxe Excel + validation robuste<br>
+    V9.2 = syntaxe Excel + validation robuste + preview exercice suivant<br>
     → 10x(5-P30-13-P30 + 5x(12-P30)) → 10 fois tout le bloc (avec 5 finishers à chaque tour)<br>
     → 4x(A-P60 + 3x(B-P20 + 2x(C))) → imbriqué à fond, tout est respecté<br>
     → 8x(1-P20) → toujours OK<br>
-    Le + à l'intérieur des parenthèses est maintenant parfaitement géré !
+    Durant le repos, l'image du prochain exercice s'affiche automatiquement !
   </div>
 
   <h3>Exercices</h3>
@@ -98,7 +113,6 @@ function getAudioContext() {
 
 function beep(freq = 800, duration = 200) {
   try {
-    // Éviter les beeps qui se chevauchent (minimum 50ms entre chaque)
     const now = Date.now();
     if (now - lastBeepTime < 50) return;
     lastBeepTime = now;
@@ -122,13 +136,13 @@ function beep(freq = 800, duration = 200) {
 
 // ========== DONNÉES ==========
 let exercises = JSON.parse(localStorage.getItem('chronoPro_exercises')) || [
-  {name:"Dips lestés", reps:"3—5", workTime:40, image:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438"},
-  {name:"HSPU / Pompes piquées", reps:"4—6", workTime:40, image:"https://images.unsplash.com/photo-1517838277536-f5f99be501cd"},
-  {name:"Pompes lestées", reps:"6—8", workTime:40, image:"https://images.unsplash.com/photo-1530822847156-5df3f8f02b07"},
-  {name:"Tractions pronation", reps:"5—7", workTime:40, image:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b"},
-  {name:"Squat arrière", reps:"8—10", workTime:45, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1"},
-  {name:"Développé militaire", reps:"6—8", workTime:40, image:"https://images.unsplash.com/photo-1605296867424-15a303c5d6fd"},
-  {name:"Soulevé de terre", reps:"3—5", workTime:50, image:"https://images.unsplash.com/photo-1603287681838-2e11c8e89019"},
+  {name:"Dips lestés", reps:"3–5", workTime:40, image:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438"},
+  {name:"HSPU / Pompes piquées", reps:"4–6", workTime:40, image:"https://images.unsplash.com/photo-1517838277536-f5f99be501cd"},
+  {name:"Pompes lestées", reps:"6–8", workTime:40, image:"https://images.unsplash.com/photo-1530822847156-5df3f8f02b07"},
+  {name:"Tractions pronation", reps:"5–7", workTime:40, image:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b"},
+  {name:"Squat arrière", reps:"8–10", workTime:45, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1"},
+  {name:"Développé militaire", reps:"6–8", workTime:40, image:"https://images.unsplash.com/photo-1605296867424-15a303c5d6fd"},
+  {name:"Soulevé de terre", reps:"3–5", workTime:50, image:"https://images.unsplash.com/photo-1603287681838-2e11c8e89019"},
   {name:"Burpees", reps:"10-15", workTime:40, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1"},
   {name:"Muscle-up", reps:"3-6", workTime:50, image:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b"},
   {name:"Finisher surprise", reps:"MAX", workTime:30, image:"https://images.unsplash.com/photo-1570545906912-5b2a3f2c8b4a"}
@@ -143,10 +157,9 @@ let timeLeft = setupTime;
 let timerInterval = null;
 let isPaused = false;
 
-// ========== PARSER V9.1 — ROBUSTE & VALIDÉ ==========
+// ========== PARSER V9.2 ==========
 function parseSequence(input) {
   try {
-    // CORRECTION: P\d+ doit être testé AVANT [\d]+ pour éviter de matcher "5" au lieu de "P5"
     const tokens = input.replace(/\s/g, '')
       .match(/\d+x\(|P\d+|[\d]+|\+|\(|\)/g) || [];
     
@@ -160,7 +173,6 @@ function parseSequence(input) {
     while (i < tokens.length) {
       const t = tokens[i];
 
-      // Répétition au début d'un groupe : 5x(
       if (/^\d+x\(/.test(t)) {
         const rounds = parseInt(t);
         if (rounds <= 0 || rounds > 1000) {
@@ -177,7 +189,6 @@ function parseSequence(input) {
       }
 
       if (t === '+') {
-        // Le + sépare les séquences mais ne crée pas de nouveau groupe
         i++;
         continue;
       }
@@ -189,7 +200,6 @@ function parseSequence(input) {
         const current = stack.pop();
         const parent = stack[stack.length - 1];
         
-        // On répète le contenu du groupe autant de fois que demandé
         for (let r = 0; r < current.multiplier; r++) {
           parent.blocks.push(...current.blocks);
         }
@@ -197,7 +207,6 @@ function parseSequence(input) {
         continue;
       }
 
-      // Exercice ou repos
       if (t.toUpperCase().startsWith('P')) {
         const duration = parseInt(t.slice(1)) || 0;
         if (duration < 0 || duration > 3600) {
@@ -238,11 +247,19 @@ function showError(msg) {
   setTimeout(() => { el.style.display = "none"; }, 5000);
 }
 
-// Temps total
 function calculateTotalTime() {
   const blocks = parseSequence(sequenceInputValue);
   let t = setupTime;
-  for (let b of blocks) {
+  
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    
+    // CORRECTION V9.2.1 : Ne pas compter le dernier repos dans le temps total
+    if (b.type === 'rest' && i === blocks.length - 1) {
+      console.log("Dernier repos ignoré dans le calcul du temps total");
+      continue;
+    }
+    
     if (b.type === 'exercise') {
       const ex = exercises[b.id - 1];
       t += ex ? ex.workTime : 30;
@@ -256,53 +273,91 @@ function calculateTotalTime() {
 const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
 const formatMMSS = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-// ========== AFFICHAGE ==========
+// ========== AFFICHAGE OPTIMISÉ ==========
 function updateDisplay() {
-  const img = document.getElementById("exercise-image");
+  const container = document.getElementById("image-container");
+  const currentImg = document.getElementById("current-image");
+  const currentLabel = document.getElementById("current-label");
+  const nextWrapper = document.getElementById("next-image-wrapper");
+  const nextImg = document.getElementById("next-image");
   const info = document.getElementById("exercise-info");
   const series = document.getElementById("series-info");
   const status = document.getElementById("status");
 
   if (isSetupPhase) {
+    // Phase de préparation
+    container.className = "single";
+    nextWrapper.style.display = "none";
+    currentImg.src = "https://i.imgur.com/IHCEoad.png";
+    currentLabel.textContent = "";
     info.textContent = "Préparation";
     series.textContent = "";
-    img.src = "https://i.imgur.com/IHCEoad.png";
     status.textContent = "Mise en place";
   } else {
     const blocks = parseSequence(sequenceInputValue);
     const totalBlocks = blocks.length;
 
     if (currentBlockIndex >= totalBlocks) {
+      // Fin de l'entraînement
+      container.className = "single";
+      nextWrapper.style.display = "none";
+      currentImg.src = "https://i.imgur.com/0pazk7c.png";
+      currentLabel.textContent = "";
       info.textContent = "FINI !";
       series.textContent = "Entraînement terminé";
-      img.src = "https://i.imgur.com/0pazk7c.png";
       status.textContent = "Bravo !";
     } else {
       const block = blocks[currentBlockIndex];
       series.textContent = `Bloc ${currentBlockIndex + 1} / ${totalBlocks}`;
 
       if (block.type === 'exercise') {
+        // Phase d'exercice - affichage simple
+        container.className = "single";
+        nextWrapper.style.display = "none";
         const ex = exercises[block.id - 1];
+        
         if (!ex) {
+          currentImg.src = "https://via.placeholder.com/300?text=Erreur";
+          currentLabel.textContent = "";
           info.textContent = "Exercice introuvable";
-          img.src = "https://via.placeholder.com/300?text=Erreur";
           status.textContent = "ERREUR";
         } else {
+          currentImg.src = ex.image || "https://via.placeholder.com/300?text=Exo";
+          currentLabel.textContent = "";
           info.textContent = `${ex.name} (${ex.reps})`;
-          img.src = ex.image || "https://via.placeholder.com/300?text=Exo";
           status.textContent = "TRAVAIL";
         }
       } else {
+        // Phase de repos - affichage avec preview
         info.textContent = "Repos";
-        img.src = "https://i.imgur.com/IHCEoad.png";
         status.textContent = `Repos ${block.duration}s`;
+        currentImg.src = "https://i.imgur.com/IHCEoad.png";
+        currentLabel.textContent = "Repos en cours";
+
+        // Vérifier s'il y a un prochain exercice
+        const nextBlockIndex = currentBlockIndex + 1;
+        if (nextBlockIndex < blocks.length && blocks[nextBlockIndex].type === 'exercise') {
+          const nextEx = exercises[blocks[nextBlockIndex].id - 1];
+          if (nextEx) {
+            container.className = "double";
+            nextWrapper.style.display = "block";
+            nextImg.src = nextEx.image || "https://via.placeholder.com/300?text=Suivant";
+          } else {
+            container.className = "single";
+            nextWrapper.style.display = "none";
+          }
+        } else {
+          container.className = "single";
+          nextWrapper.style.display = "none";
+        }
       }
     }
   }
+
   document.getElementById("timer").textContent = formatMMSS(timeLeft);
 }
 
-// ========== TIMER (CORRIGÉ) ==========
+// ========== TIMER ==========
 function advanceBlock() {
   currentBlockIndex++;
   const blocks = parseSequence(sequenceInputValue);
@@ -318,11 +373,25 @@ function advanceBlock() {
   }
 
   const block = blocks[currentBlockIndex];
+  
+  // CORRECTION V9.2.1 : Skip le dernier bloc s'il est un repos
+  if (block.type === 'rest' && currentBlockIndex === blocks.length - 1) {
+    console.log("Dernier bloc est un repos, on passe directement à FINI");
+    currentBlockIndex = blocks.length; // Force la fin
+    clearInterval(timerInterval); 
+    timerInterval = null;
+    beep(1200, 400);
+    setTimeout(() => beep(1400, 400), 500);
+    setTimeout(() => beep(1600, 800), 1000);
+    updateDisplay();
+    return;
+  }
+  
   if (block.type === 'exercise') {
     const ex = exercises[block.id - 1];
     if (!ex) {
       console.error(`Exercice ${block.id} introuvable, skip`);
-      advanceBlock(); // Skip automatiquement
+      advanceBlock();
       return;
     }
     timeLeft = ex.workTime;
@@ -335,7 +404,6 @@ function advanceBlock() {
 }
 
 function timerTick() {
-  // Beep compte à rebours (évite chevauchement avec fin d'exercice)
   if (timeLeft <= 5 && timeLeft > 0) {
     beep(440 + timeLeft * 80, 120);
   }
@@ -346,7 +414,6 @@ function timerTick() {
     return;
   }
   
-  // timeLeft === 0, transition vers le prochain bloc
   if (isSetupPhase) {
     isSetupPhase = false;
     currentBlockIndex = -1;
@@ -355,9 +422,9 @@ function timerTick() {
   advanceBlock();
 }
 
-// ========== CONTRÔLES (AMÉLIORÉS) ==========
+// ========== CONTRÔLES ==========
 function startWorkout() {
-  if (timerInterval && !isPaused) return; // Déjà en cours
+  if (timerInterval && !isPaused) return;
   
   if (isPaused) {
     isPaused = false;
@@ -367,7 +434,6 @@ function startWorkout() {
     return;
   }
   
-  // Nouveau démarrage
   resetWorkout();
   timerInterval = setInterval(timerTick, 1000);
 }
@@ -396,16 +462,85 @@ function resetWorkout() {
 }
 
 function prevBlock() {
-  if (!isSetupPhase && currentBlockIndex > 0) {
+  if (isSetupPhase) {
+    // On est en préparation, ne rien faire
+    return;
+  }
+  
+  const blocks = parseSequence(sequenceInputValue);
+  
+  if (currentBlockIndex >= blocks.length) {
+    // On est en FINI, retour au dernier exercice réel (pas un repos final)
+    currentBlockIndex = blocks.length - 1;
+    
+    // Si le dernier bloc est un repos, on recule d'un cran supplémentaire
+    if (blocks[currentBlockIndex] && blocks[currentBlockIndex].type === 'rest') {
+      currentBlockIndex--;
+    }
+    
+    // Charger le temps de ce bloc
+    if (currentBlockIndex >= 0) {
+      const block = blocks[currentBlockIndex];
+      if (block.type === 'exercise') {
+        const ex = exercises[block.id - 1];
+        timeLeft = ex ? ex.workTime : 30;
+      } else {
+        timeLeft = block.duration;
+      }
+    }
+    updateDisplay();
+    return;
+  }
+  
+  if (currentBlockIndex > 0) {
     currentBlockIndex -= 2;
     advanceBlock();
+  } else if (currentBlockIndex === 0) {
+    // Retour à la préparation
+    isSetupPhase = true;
+    currentBlockIndex = -1;
+    timeLeft = setupTime;
+    updateDisplay();
   }
 }
 
 function nextBlock() {
-  if (!isSetupPhase) {
+  if (isSetupPhase) {
+    // Sortir de la phase de préparation
+    isSetupPhase = false;
+    currentBlockIndex = -1;
+    beep(1000, 500);
     advanceBlock();
+    return;
   }
+  
+  const blocks = parseSequence(sequenceInputValue);
+  
+  if (currentBlockIndex >= blocks.length) {
+    // On est déjà en FINI, ne rien faire
+    return;
+  }
+  
+  // Si on est sur le dernier exercice et qu'on clique Suivant
+  if (currentBlockIndex === blocks.length - 1 || 
+      (blocks[currentBlockIndex + 1] && 
+       blocks[currentBlockIndex + 1].type === 'rest' && 
+       currentBlockIndex + 1 === blocks.length - 1)) {
+    // Passer directement à FINI avec le bon timer
+    currentBlockIndex = blocks.length;
+    timeLeft = 0;
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    beep(1200, 400);
+    setTimeout(() => beep(1400, 400), 500);
+    setTimeout(() => beep(1600, 800), 1000);
+    updateDisplay();
+    return;
+  }
+  
+  advanceBlock();
 }
 
 // ========== CONFIG ==========
@@ -413,7 +548,6 @@ function saveAll() {
   sequenceInputValue = document.getElementById("sequence-input").value.trim();
   setupTime = parseInt(document.getElementById("setup-time").value) || 10;
   
-  // Validation de la séquence
   const blocks = parseSequence(sequenceInputValue);
   if (blocks.length === 0) {
     showError("Séquence invalide, non sauvegardée");
@@ -483,7 +617,7 @@ document.getElementById("export-config").onclick = () => {
   const data = {exercises, sequence: sequenceInputValue, setupTime};
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}));
-  a.download = 'chrono_pro_v9_1_config.json';
+  a.download = 'chrono_pro_v9_2_config.json';
   a.click();
 };
 
@@ -504,9 +638,9 @@ document.getElementById("import-config").onchange = e => {
       document.getElementById("sequence-input").value = sequenceInputValue;
       document.getElementById("setup-time").value = setupTime;
       
-      alert("✓ Import V9.1 réussi !");
+      alert("✓ Import V9.2 réussi !");
     } catch {
-      alert("❌ Fichier JSON invalide");
+      alert("✖ Fichier JSON invalide");
     }
   };
   r.readAsText(file);
@@ -517,7 +651,6 @@ renderExercises();
 updateDisplay();
 document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
 
-// Test de validation au chargement
 const testBlocks = parseSequence(sequenceInputValue);
 if (testBlocks.length === 0) {
   showError("⚠ Séquence invalide au démarrage, vérifiez la configuration");
