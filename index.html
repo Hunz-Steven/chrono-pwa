@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.2</title>
+<title>Chrono Pro V9.3</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -68,24 +68,24 @@
   <button id="pause-btn">Pause</button>
   <button id="reset-btn">Réinitialiser</button>
   <button id="config-btn">Configurer</button>
-  <div class="version">Chrono Pro V9.2.2 – Navigation perfectionnée ✓</div>
+  <div class="version">Chrono Pro V9.3 – Durées personnalisées :XXs ✓</div>
 </div>
 
 <div id="config-panel">
   <h2>Configuration</h2>
-  <label>Mise en place (s) : <input type="number" id="setup-time" value="10" min="0"></label><br><br>
+  <label>Mise en place (s) : <input type="number" id="setup-time" value="15" min="0"></label><br><br>
   <label>Séquence :</label>
-  <input type="text" id="sequence-input" value="10x(5-P30-13-P30 + 5x(12-P30))" style="width:100%;padding:10px;font-family:monospace;font-size:15px">
+  <input type="text" id="sequence-input" value="14x(8-P20)-P30-7x(15-P20)-P30-10x(14-P20)" style="width:100%;padding:10px;font-family:monospace;font-size:15px">
   <div class="help">
-    V9.2 = syntaxe Excel + validation robuste + preview exercice suivant<br>
-    → 10x(5-P30-13-P30 + 5x(12-P30)) → 10 fois tout le bloc (avec 5 finishers à chaque tour)<br>
-    → 4x(A-P60 + 3x(B-P20 + 2x(C))) → imbriqué à fond, tout est respecté<br>
-    → 8x(1-P20) → toujours OK<br>
-    Durant le repos, l'image du prochain exercice s'affiche automatiquement !
+    V9.3 = syntaxe Excel + durées personnalisées + preview suivant<br>
+    → <strong>8:45</strong> = exercice 8 pendant 45 s (ignore la durée par défaut)<br>
+    → 14x(8:40-P20)-P30-7x(15:10-P20)-P30-10x(14:90)<br>
+    → Anciennes séquences (sans :XX) restent 100% compatibles<br>
+    Pendant le repos → image du prochain exercice s'affiche automatiquement
   </div>
 
   <h3>Exercices</h3>
-  <div class="legend">[1] Nom [2] Répétitions [3] Temps travail [4] URL image [5] Image locale</div>
+  <div class="legend">[1] Nom [2] Répétitions [3] Temps travail par défaut [4] URL image</div>
   <div id="exercise-list"></div>
 
   <button id="add-exercise">+ Exercice</button>
@@ -135,21 +135,9 @@ function beep(freq = 800, duration = 200) {
 }
 
 // ========== DONNÉES ==========
-let exercises = JSON.parse(localStorage.getItem('chronoPro_exercises')) || [
-  {name:"Dips lestés", reps:"3–5", workTime:40, image:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438"},
-  {name:"HSPU / Pompes piquées", reps:"4–6", workTime:40, image:"https://images.unsplash.com/photo-1517838277536-f5f99be501cd"},
-  {name:"Pompes lestées", reps:"6–8", workTime:40, image:"https://images.unsplash.com/photo-1530822847156-5df3f8f02b07"},
-  {name:"Tractions pronation", reps:"5–7", workTime:40, image:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b"},
-  {name:"Squat arrière", reps:"8–10", workTime:45, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1"},
-  {name:"Développé militaire", reps:"6–8", workTime:40, image:"https://images.unsplash.com/photo-1605296867424-15a303c5d6fd"},
-  {name:"Soulevé de terre", reps:"3–5", workTime:50, image:"https://images.unsplash.com/photo-1603287681838-2e11c8e89019"},
-  {name:"Burpees", reps:"10-15", workTime:40, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1"},
-  {name:"Muscle-up", reps:"3-6", workTime:50, image:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b"},
-  {name:"Finisher surprise", reps:"MAX", workTime:30, image:"https://images.unsplash.com/photo-1570545906912-5b2a3f2c8b4a"}
-];
-
-let sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "10x(5-P30-13-P30 + 5x(12-P30))";
-let setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 10;
+let exercises = JSON.parse(localStorage.getItem('chronoPro_exercises')) || [];
+let sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "14x(8-P20)-P30-7x(15-P20)-P30-10x(14-P20)";
+let setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 15;
 
 let isSetupPhase = true;
 let currentBlockIndex = -1;
@@ -157,15 +145,13 @@ let timeLeft = setupTime;
 let timerInterval = null;
 let isPaused = false;
 
-// ========== PARSER V9.2 ==========
+// ========== PARSER V9.3 ==========
 function parseSequence(input) {
   try {
     const tokens = input.replace(/\s/g, '')
-      .match(/\d+x\(|P\d+|[\d]+|\+|\(|\)/g) || [];
+      .match(/\d+x\(|P\d+|\d+(?::\d+)?|\+|\(|\)/g) || [];
     
-    if (tokens.length === 0) {
-      throw new Error("Séquence vide");
-    }
+    if (tokens.length === 0) throw new Error("Séquence vide");
 
     const stack = [{ blocks: [], multiplier: 1 }];
     let i = 0;
@@ -175,67 +161,52 @@ function parseSequence(input) {
 
       if (/^\d+x\(/.test(t)) {
         const rounds = parseInt(t);
-        if (rounds <= 0 || rounds > 1000) {
-          throw new Error(`Nombre de répétitions invalide: ${rounds}`);
-        }
+        if (rounds <= 0 || rounds > 1000) throw new Error(`Répétitions invalides: ${rounds}`);
         stack.push({ blocks: [], multiplier: rounds });
-        i++;
-        continue;
+        i++; continue;
       }
 
-      if (t === '(') {
-        i++;
-        continue;
-      }
-
-      if (t === '+') {
-        i++;
-        continue;
-      }
-
-      if (t === ')') {
-        if (stack.length <= 1) {
-          throw new Error("Parenthèse fermante sans ouverture");
+      if (t === '(' || t === '+' || t === ')') {
+        if (t === ')') {
+          if (stack.length <= 1) throw new Error("Parenthèse fermante sans ouverture");
+          const current = stack.pop();
+          const parent = stack[stack.length - 1];
+          for (let r = 0; r < current.multiplier; r++) parent.blocks.push(...current.blocks);
         }
-        const current = stack.pop();
-        const parent = stack[stack.length - 1];
-        
-        for (let r = 0; r < current.multiplier; r++) {
-          parent.blocks.push(...current.blocks);
-        }
-        i++;
-        continue;
+        i++; continue;
       }
 
       if (t.toUpperCase().startsWith('P')) {
         const duration = parseInt(t.slice(1)) || 0;
-        if (duration < 0 || duration > 3600) {
-          throw new Error(`Durée de repos invalide: ${duration}`);
-        }
+        if (duration < 0 || duration > 3600) throw new Error(`Repos invalide: ${duration}`);
         stack[stack.length - 1].blocks.push({ type: 'rest', duration });
       } else {
-        const id = parseInt(t);
-        if (id <= 0 || id > exercises.length) {
-          throw new Error(`Exercice ${id} n'existe pas (max: ${exercises.length})`);
+        const match = t.match(/^(\d+)(?::(\d+))?$/);
+        if (!match) throw new Error(`Format exercice invalide: ${t}`);
+        
+        const id = parseInt(match[1]);
+        if (id < 1 || id > exercises.length) throw new Error(`Exercice ${id} inexistant (1–${exercises.length})`);
+
+        let customWorkTime = undefined;
+        if (match[2]) {
+          customWorkTime = parseInt(match[2]);
+          if (customWorkTime < 1 || customWorkTime > 600) throw new Error(`Durée invalide pour exo ${id}: ${customWorkTime}s`);
         }
-        stack[stack.length - 1].blocks.push({ type: 'exercise', id });
+
+        stack[stack.length - 1].blocks.push({ type: 'exercise', id, workTime: customWorkTime });
       }
       i++;
     }
 
-    if (stack.length > 1) {
-      throw new Error("Parenthèse non fermée");
-    }
+    if (stack.length > 1) throw new Error("Parenthèse non fermée");
 
     const blocks = stack[0].blocks;
-    if (blocks.length === 0) {
-      throw new Error("Aucun exercice dans la séquence");
-    }
+    if (blocks.length === 0) throw new Error("Aucun bloc");
 
     return blocks;
   } catch (err) {
-    console.error("Erreur de parsing:", err);
-    showError(`Erreur de séquence: ${err.message}`);
+    console.error("Parse error:", err);
+    showError(`Erreur séquence : ${err.message}`);
     return [];
   }
 }
@@ -244,25 +215,18 @@ function showError(msg) {
   const el = document.getElementById("error-msg");
   el.textContent = msg;
   el.style.display = "block";
-  setTimeout(() => { el.style.display = "none"; }, 5000);
+  setTimeout(() => el.style.display = "none", 6000);
 }
 
 function calculateTotalTime() {
   const blocks = parseSequence(sequenceInputValue);
   let t = setupTime;
-  
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
-    
-    // CORRECTION V9.2.1 : Ne pas compter le dernier repos dans le temps total
-    if (b.type === 'rest' && i === blocks.length - 1) {
-      console.log("Dernier repos ignoré dans le calcul du temps total");
-      continue;
-    }
-    
+    if (b.type === 'rest' && i === blocks.length - 1) continue;
     if (b.type === 'exercise') {
       const ex = exercises[b.id - 1];
-      t += ex ? ex.workTime : 30;
+      t += b.workTime !== undefined ? b.workTime : (ex?.workTime || 30);
     } else {
       t += b.duration;
     }
@@ -273,7 +237,7 @@ function calculateTotalTime() {
 const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
 const formatMMSS = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-// ========== AFFICHAGE OPTIMISÉ ==========
+// ========== AFFICHAGE ==========
 function updateDisplay() {
   const container = document.getElementById("image-container");
   const currentImg = document.getElementById("current-image");
@@ -285,7 +249,6 @@ function updateDisplay() {
   const status = document.getElementById("status");
 
   if (isSetupPhase) {
-    // Phase de préparation
     container.className = "single";
     nextWrapper.style.display = "none";
     currentImg.src = "https://i.imgur.com/IHCEoad.png";
@@ -295,106 +258,91 @@ function updateDisplay() {
     status.textContent = "Mise en place";
   } else {
     const blocks = parseSequence(sequenceInputValue);
-    const totalBlocks = blocks.length;
-
-    if (currentBlockIndex >= totalBlocks) {
-      // Fin de l'entraînement
+    if (currentBlockIndex >= blocks.length) {
       container.className = "single";
       nextWrapper.style.display = "none";
-      currentImg.src = "https://i.imgur.com/0pazk7c.png";
+      currentImg.src = "https://i.imgur.com/0pazk7c.png";  // image de fin
       currentLabel.textContent = "";
       info.textContent = "FINI !";
       series.textContent = "Entraînement terminé";
       status.textContent = "Bravo !";
     } else {
       const block = blocks[currentBlockIndex];
-      series.textContent = `Bloc ${currentBlockIndex + 1} / ${totalBlocks}`;
+      series.textContent = `Bloc ${currentBlockIndex + 1} / ${blocks.length}`;
 
       if (block.type === 'exercise') {
-        // Phase d'exercice - affichage simple
         container.className = "single";
         nextWrapper.style.display = "none";
         const ex = exercises[block.id - 1];
-        
         if (!ex) {
           currentImg.src = "https://via.placeholder.com/300?text=Erreur";
-          currentLabel.textContent = "";
           info.textContent = "Exercice introuvable";
           status.textContent = "ERREUR";
         } else {
           currentImg.src = ex.image || "https://via.placeholder.com/300?text=Exo";
           currentLabel.textContent = "";
-          info.textContent = `${ex.name} (${ex.reps})`;
+          const dur = block.workTime !== undefined ? ` [${block.workTime}s]` : "";
+          info.textContent = `${ex.name} (${ex.reps})${dur}`;
           status.textContent = "TRAVAIL";
         }
-      } else {
-        // Phase de repos - affichage avec preview
-        info.textContent = "Repos";
-        status.textContent = `Repos ${block.duration}s`;
-        currentImg.src = "https://i.imgur.com/IHCEoad.png";
-        currentLabel.textContent = "Repos en cours";
+      } else {  // bloc repos
+  info.textContent = "Repos";
+  currentImg.src = "https://i.imgur.com/IHCEoad.png";
+  currentLabel.textContent = "Repos en cours";
 
-        // Vérifier s'il y a un prochain exercice
-        const nextBlockIndex = currentBlockIndex + 1;
-        if (nextBlockIndex < blocks.length && blocks[nextBlockIndex].type === 'exercise') {
-          const nextEx = exercises[blocks[nextBlockIndex].id - 1];
-          if (nextEx) {
-            container.className = "double";
-            nextWrapper.style.display = "block";
-            nextImg.src = nextEx.image || "https://via.placeholder.com/300?text=Suivant";
-          } else {
-            container.className = "single";
-            nextWrapper.style.display = "none";
-          }
-        } else {
-          container.className = "single";
-          nextWrapper.style.display = "none";
-        }
-      }
+  // Affiche la durée du repos (ex: "REPOS 30s")
+  status.textContent = `REPOS ${block.duration}s`;
+
+  // Gestion du preview prochain exercice (inchangé)
+  const nextIdx = currentBlockIndex + 1;
+  if (nextIdx < blocks.length && blocks[nextIdx].type === 'exercise') {
+    const nextEx = exercises[blocks[nextIdx].id - 1];
+    if (nextEx) {
+      container.className = "double";
+      nextWrapper.style.display = "block";
+      nextImg.src = nextEx.image || "https://via.placeholder.com/300?text=Suivant";
+    } else {
+      container.className = "single";
+      nextWrapper.style.display = "none";
+    }
+  } else {
+    container.className = "single";
+    nextWrapper.style.display = "none";
+  }
+}
     }
   }
 
   document.getElementById("timer").textContent = formatMMSS(timeLeft);
 }
 
-// ========== TIMER ==========
+// ========== TIMER LOGIC ==========
 function advanceBlock() {
   currentBlockIndex++;
   const blocks = parseSequence(sequenceInputValue);
 
   if (currentBlockIndex >= blocks.length) {
-    clearInterval(timerInterval); 
-    timerInterval = null;
-    beep(1200, 400);
-    setTimeout(() => beep(1400, 400), 500);
+    clearInterval(timerInterval); timerInterval = null;
+    beep(1200, 400); setTimeout(() => beep(1400, 400), 500);
     setTimeout(() => beep(1600, 800), 1000);
     updateDisplay();
     return;
   }
 
   const block = blocks[currentBlockIndex];
-  
-  // CORRECTION V9.2.1 : Skip le dernier bloc s'il est un repos
   if (block.type === 'rest' && currentBlockIndex === blocks.length - 1) {
-    console.log("Dernier bloc est un repos, on passe directement à FINI");
-    currentBlockIndex = blocks.length; // Force la fin
-    clearInterval(timerInterval); 
-    timerInterval = null;
-    beep(1200, 400);
-    setTimeout(() => beep(1400, 400), 500);
+    currentBlockIndex = blocks.length;
+    clearInterval(timerInterval); timerInterval = null;
+    beep(1200, 400); setTimeout(() => beep(1400, 400), 500);
     setTimeout(() => beep(1600, 800), 1000);
     updateDisplay();
     return;
   }
-  
+
   if (block.type === 'exercise') {
     const ex = exercises[block.id - 1];
-    if (!ex) {
-      console.error(`Exercice ${block.id} introuvable, skip`);
-      advanceBlock();
-      return;
-    }
-    timeLeft = ex.workTime;
+    if (!ex) { advanceBlock(); return; }
+    timeLeft = block.workTime !== undefined ? block.workTime : (ex.workTime || 30);
     beep(880, 350);
   } else {
     timeLeft = block.duration;
@@ -422,37 +370,42 @@ function timerTick() {
   advanceBlock();
 }
 
-// ========== CONTRÔLES ==========
+// ========== CONTROLS ==========
 function startWorkout() {
   if (timerInterval && !isPaused) return;
-  
+
   if (isPaused) {
     isPaused = false;
     timerInterval = setInterval(timerTick, 1000);
-    document.getElementById("status").textContent = isSetupPhase ? "Mise en place" : "TRAVAIL";
+    updateDisplay();
     document.getElementById("start-btn").textContent = "Démarrer";
     return;
   }
-  
+
+  // Nouveau : si on a déjà avancé manuellement (Suivant cliqué en prep), on ne reset pas
+  if (!isSetupPhase && currentBlockIndex >= 0) {
+    // On est déjà sorti de prep → on reprend là où on est
+    timerInterval = setInterval(timerTick, 1000);
+    updateDisplay();
+    document.getElementById("start-btn").textContent = "Démarrer";
+    return;
+  }
+
+  // Sinon (vrai démarrage depuis prep sans avoir touché Suivant) → reset complet
   resetWorkout();
   timerInterval = setInterval(timerTick, 1000);
 }
 
 function pauseWorkout() {
   if (!timerInterval) return;
-  
-  clearInterval(timerInterval); 
-  timerInterval = null;
+  clearInterval(timerInterval); timerInterval = null;
   isPaused = true;
   document.getElementById("status").textContent = "⏸ Pause";
   document.getElementById("start-btn").textContent = "Reprendre";
 }
 
 function resetWorkout() {
-  if (timerInterval) {
-    clearInterval(timerInterval); 
-    timerInterval = null;
-  }
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   isSetupPhase = true;
   currentBlockIndex = -1;
   timeLeft = setupTime;
@@ -462,71 +415,62 @@ function resetWorkout() {
 }
 
 function prevBlock() {
-  if (isSetupPhase) {
-    // On est en préparation, ne rien faire
-    return;
-  }
-  
   const blocks = parseSequence(sequenceInputValue);
-  
-  if (currentBlockIndex >= blocks.length) {
-    // On est en FINI, retour au dernier exercice réel (pas un repos final)
-    currentBlockIndex = blocks.length - 1;
-    
-    // Si le dernier bloc est un repos, on recule d'un cran supplémentaire
-    if (blocks[currentBlockIndex] && blocks[currentBlockIndex].type === 'rest') {
-      currentBlockIndex--;
-    }
-    
-    // Charger le temps de ce bloc
-    if (currentBlockIndex >= 0) {
-      const block = blocks[currentBlockIndex];
-      if (block.type === 'exercise') {
-        const ex = exercises[block.id - 1];
-        timeLeft = ex ? ex.workTime : 30;
-      } else {
-        timeLeft = block.duration;
-      }
-    }
-    updateDisplay();
+  if (blocks.length === 0) return;
+
+  // Si on est en préparation → rien à faire
+  if (isSetupPhase) {
     return;
   }
-  
-  if (currentBlockIndex > 0) {
-    currentBlockIndex -= 2;
-    advanceBlock();
-  } else if (currentBlockIndex === 0) {
-    // Retour à la préparation
+
+  // On recule d’un cran (même si on est à FINI ou après)
+  currentBlockIndex = Math.max(-1, currentBlockIndex - 1);
+
+  // Si on arrive à -1 → on repasse en phase préparation
+  if (currentBlockIndex === -1) {
     isSetupPhase = true;
-    currentBlockIndex = -1;
     timeLeft = setupTime;
-    updateDisplay();
+  } else {
+    // Bloc normal → on charge le temps correspondant
+    const block = blocks[currentBlockIndex];
+
+    if (block.type === 'exercise') {
+      const ex = exercises[block.id - 1];
+      timeLeft = (block.workTime !== undefined) ? block.workTime : (ex?.workTime || 30);
+    } else {
+      timeLeft = block.duration;
+    }
   }
+
+  // On arrête toujours le timer quand on change de bloc manuellement
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  isPaused = true;
+
+  // Mise à jour visuelle
+  updateDisplay();
+
+  // On met le bouton en mode "Reprendre" pour que ce soit clair
+  document.getElementById("start-btn").textContent = "Reprendre";
 }
 
 function nextBlock() {
+  const blocks = parseSequence(sequenceInputValue);
+  if (blocks.length === 0) return;
+
   if (isSetupPhase) {
-    // Sortir de la phase de préparation
+    // Sortir de la préparation
     isSetupPhase = false;
     currentBlockIndex = -1;
     beep(1000, 500);
     advanceBlock();
     return;
   }
-  
-  const blocks = parseSequence(sequenceInputValue);
-  
-  if (currentBlockIndex >= blocks.length) {
-    // On est déjà en FINI, ne rien faire
-    return;
-  }
-  
-  // Si on est sur le dernier exercice et qu'on clique Suivant
-  if (currentBlockIndex === blocks.length - 1 || 
-      (blocks[currentBlockIndex + 1] && 
-       blocks[currentBlockIndex + 1].type === 'rest' && 
-       currentBlockIndex + 1 === blocks.length - 1)) {
-    // Passer directement à FINI avec le bon timer
+
+  // Si on est déjà à la fin ou au-delà
+  if (currentBlockIndex >= blocks.length - 1) {
     currentBlockIndex = blocks.length;
     timeLeft = 0;
     if (timerInterval) {
@@ -539,18 +483,18 @@ function nextBlock() {
     updateDisplay();
     return;
   }
-  
+
+  // Avance normalement
   advanceBlock();
 }
 
 // ========== CONFIG ==========
 function saveAll() {
   sequenceInputValue = document.getElementById("sequence-input").value.trim();
-  setupTime = parseInt(document.getElementById("setup-time").value) || 10;
+  setupTime = parseInt(document.getElementById("setup-time").value) || 15;
   
-  const blocks = parseSequence(sequenceInputValue);
-  if (blocks.length === 0) {
-    showError("Séquence invalide, non sauvegardée");
+  if (parseSequence(sequenceInputValue).length === 0) {
+    showError("Séquence invalide → non sauvegardée");
     return;
   }
   
@@ -559,7 +503,6 @@ function saveAll() {
   localStorage.setItem('chronoPro_setupTime', setupTime);
   
   document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
-  
   const s = document.getElementById("autosave-status");
   s.textContent = "✓ Sauvegardé";
   s.style.opacity = 1;
@@ -576,18 +519,18 @@ function renderExercises() {
     const d = document.createElement("div");
     d.className = "exercise-entry";
     d.innerHTML = `
-      <input type="text" value="${ex.name}" onchange="exercises[${i}].name=this.value;saveAll()">
-      <input type="text" value="${ex.reps}" onchange="exercises[${i}].reps=this.value;saveAll()">
+      <input type="text" value="${ex.name.replace(/"/g,'&quot;')}" onchange="exercises[${i}].name=this.value;saveAll()">
+      <input type="text" value="${ex.reps.replace(/"/g,'&quot;')}" onchange="exercises[${i}].reps=this.value;saveAll()">
       <input type="number" value="${ex.workTime}" min="1" max="300" onchange="exercises[${i}].workTime=Math.max(1,parseInt(this.value)||30);saveAll()">
-      <input type="text" placeholder="URL image" value="${ex.image}" onchange="exercises[${i}].image=this.value;saveAll()">
+      <input type="text" placeholder="URL image" value="${ex.image||''}" onchange="exercises[${i}].image=this.value;saveAll()">
       <input type="file" accept="image/*" onchange="((f)=>{if(f){const r=new FileReader();r.onload=e=>{exercises[${i}].image=e.target.result;saveAll();renderExercises()};r.readAsDataURL(f)}})(this.files[0])">
-      <button class="delete-btn" title="Supprimer" onclick="if(confirm('Supprimer cet exercice ?')){exercises.splice(${i},1);renderExercises();saveAll()}">✕</button>
+      <button class="delete-btn" title="Supprimer" onclick="if(confirm('Supprimer ?')){exercises.splice(${i},1);renderExercises();saveAll()}">✕</button>
     `;
     list.appendChild(d);
   });
 }
 
-// ========== EVENT LISTENERS ==========
+// ========== EVENTS ==========
 document.getElementById("prev-btn").onclick = prevBlock;
 document.getElementById("next-btn").onclick = nextBlock;
 document.getElementById("start-btn").onclick = startWorkout;
@@ -596,8 +539,9 @@ document.getElementById("reset-btn").onclick = resetWorkout;
 
 document.getElementById("config-btn").onclick = () => {
   const p = document.getElementById("config-panel");
-  p.style.display = p.style.display === "block" ? "none" : "block";
-  if (p.style.display === "block") {
+  const visible = p.style.display === "block";
+  p.style.display = visible ? "none" : "block";
+  if (!visible) {
     document.getElementById("sequence-input").value = sequenceInputValue;
     document.getElementById("setup-time").value = setupTime;
     renderExercises();
@@ -615,45 +559,44 @@ document.getElementById("save-config").onclick = saveAll;
 
 document.getElementById("export-config").onclick = () => {
   const data = {exercises, sequence: sequenceInputValue, setupTime};
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type:'application/json'}));
-  a.download = 'chrono_pro_v9_2_config.json';
+  a.href = url;
+  a.download = 'chrono_pro_v9.3_config.json';
   a.click();
+  URL.revokeObjectURL(url);
 };
 
 document.getElementById("import-config").onchange = e => {
   const file = e.target.files[0];
   if (!file) return;
-  
-  const r = new FileReader();
-  r.onload = ev => {
+  const reader = new FileReader();
+  reader.onload = ev => {
     try {
       const d = JSON.parse(ev.target.result);
       exercises = d.exercises || [];
       sequenceInputValue = d.sequence || "1-P30-2";
-      setupTime = d.setupTime || 10;
-      
+      setupTime = d.setupTime || 15;
       saveAll();
       renderExercises();
       document.getElementById("sequence-input").value = sequenceInputValue;
       document.getElementById("setup-time").value = setupTime;
-      
-      alert("✓ Import V9.2 réussi !");
-    } catch {
-      alert("✖ Fichier JSON invalide");
+      alert("Import V9.3 OK !");
+    } catch(err) {
+      alert("Fichier JSON invalide\n" + err.message);
     }
   };
-  r.readAsText(file);
+  reader.readAsText(file);
 };
 
-// ========== INITIALISATION ==========
+// ========== INIT ==========
 renderExercises();
 updateDisplay();
 document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
 
-const testBlocks = parseSequence(sequenceInputValue);
-if (testBlocks.length === 0) {
-  showError("⚠ Séquence invalide au démarrage, vérifiez la configuration");
+if (parseSequence(sequenceInputValue).length === 0) {
+  showError("⚠ Séquence invalide au démarrage – vérifiez config");
 }
 </script>
 </body>
