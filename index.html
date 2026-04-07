@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.8 – Mise à jour temps réel</title>
+<title>Chrono Pro V9.10 – Pause / Reprise corrigée</title>
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
@@ -49,7 +49,7 @@
   <button id="pause-btn">⏸ Pause</button>
   <button id="reset-btn">⟳ Réinitialiser</button>
   <button id="config-btn">⚙ Configurer</button>
-  <div class="version">Chrono Pro V9.8 – Mise à jour temps réel</div>
+  <div class="version">Chrono Pro V9.10 – Pause / Reprise corrigée</div>
 </div>
 
 <div id="config-panel" class="config-panel">
@@ -100,20 +100,28 @@
 let audioCtx = null, lastBeepTime = 0, voiceEnabled = false;
 function getAudioContext() { if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); document.body.addEventListener('touchstart', ()=>audioCtx.resume(), {once:true}); document.body.addEventListener('click', ()=>audioCtx.resume(), {once:true}); } return audioCtx; }
 function beep(freq=800, dur=200) { try { let now = Date.now(); if (now-lastBeepTime<50) return; lastBeepTime=now; let ctx=getAudioContext(); let o=ctx.createOscillator(); let g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=freq; o.type='sine'; g.gain.setValueAtTime(0.001, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur/1000); o.start(); o.stop(ctx.currentTime+dur/1000); } catch(e){} }
-function speak(t) { if(!voiceEnabled||!window.speechSynthesis) return; window.speechSynthesis.cancel(); let u=new SpeechSynthesisUtterance(t); u.lang='fr-FR'; u.rate=0.85; window.speechSynthesis.speak(u); }
+function speak(t) { 
+  if(!voiceEnabled) return;
+  if(!window.speechSynthesis) return;
+  try { window.speechSynthesis.cancel(); } catch(e) {}
+  let u=new SpeechSynthesisUtterance(t);
+  u.lang='fr-FR';
+  u.rate=0.85;
+  window.speechSynthesis.speak(u);
+}
 
 // ========== UUID ==========
 function uuid() { return 'xxxx-4xxx-yxxx'.replace(/[xy]/g, c=>{ let r=Math.random()*16|0, v=c=='x'?r:(r&0x3|0x8); return v.toString(16); }); }
 
 // ========== DONNÉES PRINCIPALES ==========
-let exercises = [];        // chaque exo: { id, uid, name, reps, workTime, image }
+let exercises = [];
 let sequenceInputValue = "";
 let setupTime = 15;
 let isSetupPhase = true, currentBlockIndex = -1, timeLeft = 0, timerInterval = null, isPaused = false;
 let isTempoMode = false, tempoInterval = null, currentRep=0, currentPhase=0, tempoPhases=[0,0,0,0], tempoOriginal=[0,0,0,0], totalReps=0;
-let savedPrograms = [];    // [{ name, sequence, setupTime }]
+let savedPrograms = [];
 
-// ========== PARSER (V9.4) ==========
+// ========== PARSER ==========
 function parseExerciseToken(t) {
   let m = t.match(/^(\d+):(\d+)$/);
   if(m) return { type:'exercise', id:parseInt(m[1]), duration:parseInt(m[2]) };
@@ -167,6 +175,7 @@ function startTempoMode(block){
   if(timerInterval) clearInterval(timerInterval);
   if(tempoInterval) clearInterval(tempoInterval);
   isTempoMode=true;
+  isPaused=false;
   let parts=block.tempo.split('-').map(Number);
   tempoOriginal=[...parts]; tempoPhases=[...parts];
   totalReps=block.reps; currentRep=1; currentPhase=0;
@@ -175,6 +184,7 @@ function startTempoMode(block){
   tempoInterval=setInterval(tempoTick,1000);
 }
 function tempoTick(){
+  if(isPaused) return; // Ne rien faire si en pause
   if(tempoPhases[currentPhase]===0){ nextPhase(); return; }
   tempoPhases[currentPhase]--;
   if(currentPhase===0) beep(300,80); else if(currentPhase===2) beep(800,80); else beep(500,40);
@@ -186,6 +196,7 @@ function tempoTick(){
   if(tempoPhases[currentPhase]===0) nextPhase();
 }
 function nextPhase(){
+  if(isPaused) return;
   currentPhase++;
   if(currentPhase>=4){
     currentRep++;
@@ -270,30 +281,81 @@ function advanceBlock(){
   updateDisplay();
 }
 function timerTick(){
+  if(isPaused) return; // Ne pas décrémenter si en pause
   if(timeLeft<=5 && timeLeft>0) beep(440+timeLeft*80,120);
   if(timeLeft>0){ timeLeft--; document.getElementById("timer").innerHTML=formatMMSS(timeLeft); return; }
   if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); }
   advanceBlock();
 }
 function startWorkout(){
-  if(isTempoMode) return;
+  getAudioContext();
+  if(window.speechSynthesis) { window.speechSynthesis.cancel(); }
+  
+  // Gestion de la reprise après pause (mode tempo ou durée)
+  if(isPaused) {
+    isPaused = false;
+    if(isTempoMode && tempoInterval === null) {
+      // Redémarrer l'intervalle tempo
+      tempoInterval = setInterval(tempoTick, 1000);
+    } else if(!isTempoMode && timerInterval === null) {
+      timerInterval = setInterval(timerTick, 1000);
+    }
+    document.getElementById("start-btn").innerHTML = "Démarrer";
+    updateDisplay();
+    return;
+  }
+  
+  if(isTempoMode) return; // déjà en cours
+  
   if(timerInterval && !isPaused) return;
-  if(isPaused){ isPaused=false; timerInterval=setInterval(timerTick,1000); updateDisplay(); document.getElementById("start-btn").innerHTML="Démarrer"; return; }
-  if(!isSetupPhase && currentBlockIndex>=0){ timerInterval=setInterval(timerTick,1000); updateDisplay(); return; }
-  resetWorkout(); timerInterval=setInterval(timerTick,1000);
+  
+  // Si en phase de préparation ou arrêt complet
+  if(isSetupPhase || currentBlockIndex === -1 || timerInterval === null) {
+    resetWorkout();
+    timerInterval = setInterval(timerTick, 1000);
+    updateDisplay();
+    document.getElementById("start-btn").innerHTML = "Démarrer";
+    return;
+  }
+  
+  // Cas normal
+  timerInterval = setInterval(timerTick, 1000);
+  updateDisplay();
 }
 function pauseWorkout(){
-  if(isTempoMode){ if(tempoInterval) clearInterval(tempoInterval); isPaused=true; document.getElementById("status").innerHTML="⏸ Pause tempo"; document.getElementById("start-btn").innerHTML="Reprendre"; return; }
-  if(!timerInterval) return; clearInterval(timerInterval); isPaused=true; document.getElementById("status").innerHTML="⏸ Pause"; document.getElementById("start-btn").innerHTML="Reprendre";
+  if(isTempoMode) {
+    if(tempoInterval) {
+      clearInterval(tempoInterval);
+      tempoInterval = null;
+    }
+    isPaused = true;
+    document.getElementById("status").innerHTML = "⏸ Pause tempo";
+    document.getElementById("start-btn").innerHTML = "Reprendre";
+    return;
+  }
+  if(!timerInterval) return;
+  clearInterval(timerInterval);
+  timerInterval = null;
+  isPaused = true;
+  document.getElementById("status").innerHTML = "⏸ Pause";
+  document.getElementById("start-btn").innerHTML = "Reprendre";
 }
 function resetWorkout(){
-  if(timerInterval) clearInterval(timerInterval); if(tempoInterval) clearInterval(tempoInterval); isTempoMode=false; isSetupPhase=true; currentBlockIndex=-1; timeLeft=setupTime; isPaused=false; document.getElementById("start-btn").innerHTML="Démarrer"; updateDisplay();
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if(tempoInterval) { clearInterval(tempoInterval); tempoInterval = null; }
+  isTempoMode = false;
+  isSetupPhase = true;
+  currentBlockIndex = -1;
+  timeLeft = setupTime;
+  isPaused = false;
+  document.getElementById("start-btn").innerHTML = "Démarrer";
+  updateDisplay();
 }
 function prevBlock(){
   let blocks=parseSequence(sequenceInputValue);
   if(blocks.length===0) return;
   if(isTempoMode) stopTempoMode();
-  if(timerInterval) clearInterval(timerInterval);
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   isPaused=true;
   if(isSetupPhase) return;
   currentBlockIndex=Math.max(-1, currentBlockIndex-1);
@@ -362,7 +424,6 @@ function cleanInvalidExercises() {
     showAutoSave("Aucun exercice invalide trouvé.");
   }
 }
-// Nettoie la séquence : supprime les références à des IDs d'exercices qui n'existent plus
 function cleanSequenceFromMissingIds() {
   let blocks = parseSequence(sequenceInputValue);
   let validIds = new Set(exercises.map(e => e.id));
@@ -371,12 +432,11 @@ function cleanSequenceFromMissingIds() {
   for (let block of blocks) {
     if (block.type === 'exercise' && !validIds.has(block.id)) {
       modified = true;
-      continue; // on supprime ce bloc
+      continue;
     }
     newBlocks.push(block);
   }
   if (modified) {
-    // Reconstruire la séquence sous forme de chaîne (simplifié)
     let newSeqParts = [];
     for (let block of newBlocks) {
       if (block.type === 'rest') newSeqParts.push(`P${block.duration}`);
@@ -387,7 +447,7 @@ function cleanSequenceFromMissingIds() {
     }
     sequenceInputValue = newSeqParts.join('-');
     document.getElementById("sequence-input").value = sequenceInputValue;
-    showAutoSave("⚠️ La séquence contenait des exercices supprimés. Elle a été nettoyée.");
+    showAutoSave("⚠️ Séquence nettoyée (IDs invalides supprimés).");
     saveAll();
   }
 }
@@ -401,7 +461,6 @@ function loadSavedPrograms(){
   for(let p of savedPrograms){ let opt=document.createElement("option"); opt.value=p.name; opt.textContent=p.name; sel.appendChild(opt); }
 }
 function saveCurrentProgram(){
-  // On s'assure d'avoir la dernière valeur du champ
   let newSeq = document.getElementById("sequence-input").value;
   let newSetup = parseInt(document.getElementById("setup-time").value) || 15;
   if(newSeq !== sequenceInputValue) {
@@ -435,9 +494,10 @@ function loadSelectedProgram(){
     setupTime = prog.setupTime;
     document.getElementById("sequence-input").value = sequenceInputValue;
     document.getElementById("setup-time").value = setupTime;
-    saveAll(); // met à jour localStorage et l'affichage du temps total
-    showAutoSave(`Programme "${name}" chargé`);
+    saveAll();
+    resetWorkout();
     updateTotalTimeDisplay();
+    showAutoSave(`Programme "${name}" chargé et réinitialisé.`);
   }
 }
 function exportProgram(){
@@ -476,6 +536,7 @@ function importProgramFile(file){
       document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime;
       saveAll(); showAutoSave("Programme importé (fusion UUID)");
       loadSavedPrograms();
+      resetWorkout();
       updateTotalTimeDisplay();
     } catch(err){ alert("Erreur import: "+err.message); }
   };
@@ -502,6 +563,7 @@ function importFull(file){
       let data=JSON.parse(ev.target.result);
       exercises=data.exercises||[]; sequenceInputValue=data.sequence||sequenceInputValue; setupTime=data.setupTime||setupTime; voiceEnabled=data.voiceEnabled||false; savedPrograms=data.savedPrograms||[];
       saveAll(); renderExercises(); document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime; document.getElementById("voice-toggle").checked=voiceEnabled; loadSavedPrograms(); alert("Import complet réussi");
+      resetWorkout();
       updateTotalTimeDisplay();
     } catch(err){ alert("Fichier invalide"); }
   };
@@ -525,6 +587,7 @@ function syncSequenceFromInput() {
   if(newSeq !== sequenceInputValue) {
     sequenceInputValue = newSeq;
     updateTotalTimeDisplay();
+    resetWorkout();
   }
 }
 function syncSetupFromInput() {
@@ -532,12 +595,19 @@ function syncSetupFromInput() {
   if(!isNaN(newSetup) && newSetup !== setupTime) {
     setupTime = newSetup;
     updateTotalTimeDisplay();
+    resetWorkout();
+  }
+}
+function syncVoiceFromCheckbox() {
+  voiceEnabled = document.getElementById("voice-toggle").checked;
+  localStorage.setItem('chronoPro_voice', voiceEnabled);
+  if(voiceEnabled && window.speechSynthesis) {
+    speak("Synthèse vocale activée");
   }
 }
 
-// ========== INITIALISATION AVEC NETTOYAGE AUTOMATIQUE ==========
+// ========== INITIALISATION ==========
 function init(){
-  // 1. Chargement des exercices depuis localStorage
   let stored = localStorage.getItem('chronoPro_exercises');
   if(stored) {
     try {
@@ -545,16 +615,9 @@ function init(){
     } catch(e) { exercises = []; }
   }
   
-  // 2. Nettoyage radical : on garde seulement les exercices valides (nom non vide, non 'undefined', non 'null')
   const before = exercises.length;
-  exercises = exercises.filter(ex => {
-    if (!ex) return false;
-    let name = ex.name;
-    return name && typeof name === 'string' && name.trim() !== '' && name !== 'undefined' && name !== 'null';
-  });
-  // Si on a perdu plus de 30% des exos ou si la liste est vide, on réinitialise complètement avec les defaults
+  exercises = exercises.filter(ex => ex && typeof ex.name === 'string' && ex.name.trim() !== '' && ex.name !== 'undefined' && ex.name !== 'null');
   if (exercises.length === 0 || (before > 0 && exercises.length < before * 0.7)) {
-    console.log("Corruption détectée ou exercices insuffisants. Réinitialisation avec les 32 exercices par défaut.");
     const defaultExercises = [
       {"name":"1. Dips lestés","reps":"3–5 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/07/Ring-Dips.gif"},
       {"name":"2. Pompes piquées / HSPU","reps":"4–6 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/06/Bench-Pike-Push-up.gif"},
@@ -590,36 +653,30 @@ function init(){
       {"name":"32. Close grip pull down","reps":"12","workTime":40,"image":"https://gymvisual.com/img/p/1/2/4/5/3/12453.gif"}
     ];
     exercises = defaultExercises.map((ex,idx)=>({ id:idx+1, uid:uuid(), name:ex.name, reps:ex.reps, workTime:ex.workTime, image:ex.image }));
-    // On sauvegarde immédiatement pour remplacer l'ancienne version corrompue
     localStorage.setItem('chronoPro_exercises', JSON.stringify(exercises));
   }
   
-  // 3. Pour chaque exercice, garantir un uid
   for(let ex of exercises) if(!ex.uid) ex.uid = uuid();
   
-  // 4. Chargement des autres paramètres
   sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "30x(4:10-P10)-P30-30x(11:10-P20)-P30-10x(15:40-P30)";
   setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 15;
   voiceEnabled = localStorage.getItem('chronoPro_voice') === 'true';
   
-  // 5. Nettoyage de la séquence : supprimer les références à des IDs invalides
   cleanSequenceFromMissingIds();
   
-  // 6. Mise à jour de l'interface
   document.getElementById("sequence-input").value = sequenceInputValue;
   document.getElementById("setup-time").value = setupTime;
   document.getElementById("voice-toggle").checked = voiceEnabled;
   
-  // Écouteurs pour la mise à jour temps réel
   document.getElementById("sequence-input").addEventListener("input", syncSequenceFromInput);
   document.getElementById("setup-time").addEventListener("input", syncSetupFromInput);
+  document.getElementById("voice-toggle").addEventListener("change", syncVoiceFromCheckbox);
   
   loadSavedPrograms();
   renderExercises();
-  updateDisplay();
+  resetWorkout();
   updateTotalTimeDisplay();
   
-  // Ajout du temps total (élément s'il n'existe pas)
   let infoDiv = document.getElementById("total-time-info");
   if(!infoDiv){
     let p = document.getElementById("config-panel");
@@ -631,7 +688,6 @@ function init(){
   }
   updateTotalTimeDisplay();
   
-  // Événements
   document.getElementById("prev-btn").onclick = prevBlock;
   document.getElementById("next-btn").onclick = nextBlock;
   document.getElementById("start-btn").onclick = startWorkout;
@@ -647,7 +703,7 @@ function init(){
   document.getElementById("import-program-btn").onclick = () => { let input=document.createElement('input'); input.type='file'; input.accept='.json'; input.onchange=e=>{ if(e.target.files[0]) importProgramFile(e.target.files[0]); }; input.click(); };
   document.getElementById("export-week-btn").onclick = exportWeekText;
   document.getElementById("export-full-btn").onclick = exportFull;
-  document.getElementById("clean-exercises-btn").onclick = () => { cleanInvalidExercises(); cleanSequenceFromMissingIds(); updateTotalTimeDisplay(); };
+  document.getElementById("clean-exercises-btn").onclick = () => { cleanInvalidExercises(); cleanSequenceFromMissingIds(); resetWorkout(); updateTotalTimeDisplay(); };
   
   let importFullBtn = document.createElement("button"); importFullBtn.innerHTML = "📥 Importer configuration complète"; importFullBtn.onclick = () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ if(e.target.files[0]) importFull(e.target.files[0]); }; inp.click(); };
   document.querySelector(".advanced-zone .flex-buttons").appendChild(importFullBtn);
