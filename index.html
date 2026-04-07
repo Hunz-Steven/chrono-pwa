@@ -3,13 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.3</title>
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#007bff">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Chrono Pro V9.8 – Mise à jour temps réel</title>
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
@@ -18,586 +12,647 @@
   #image-container img{width:100%;max-width:300px;height:auto;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
   #image-container.double{display:flex;width:100%;max-width:600px;margin:0 auto;align-items:center}
   #image-container.double > div{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
-  #image-container.double img{width:100%;height:auto;min-height:200px;max-height:280px;object-fit:contain;max-width:none;background:#f5f5f5}
-  .image-label{font-size:12px;color:#666;margin-top:5px;font-weight:500}
+  #image-container.double img{width:100%;height:auto;min-height:200px;max-height:280px;object-fit:contain}
+  .image-label{font-size:12px;color:#666;margin-top:5px}
   #timer{font-size:56px;font-weight:bold;margin:20px 0;color:#007bff}
   #exercise-info,#series-info,#status{font-size:20px;margin:10px 0;font-weight:600}
   #series-info{color:#555;font-weight:400}
   button{padding:12px 20px;font-size:16px;margin:6px 4px;cursor:pointer;border:none;border-radius:6px;background:#007bff;color:white;transition:all .2s}
-  button:hover:not(:disabled){background:#0056b3;transform:translateY(-1px)}
-  button:disabled{background:#ccc;cursor:not-allowed}
-  #config-panel{display:none;margin-top:25px;padding:20px;background:#f8f9fa;border-radius:10px;width:90%;max-width:560px;box-shadow:0 4px 8px rgba(0,0,0,.1)}
-  #exercise-list{max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;padding:8px;background:white;margin-bottom:15px}
-  .exercise-entry{border-bottom:1px solid #eee;padding:12px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
-  .exercise-entry input{padding:8px;font-size:14px;border:1px solid #ddd;border-radius:4px}
-  .exercise-entry input[type="text"], input[type="number"]{width:100px}
-  .exercise-entry input[type="text"]:nth-child(1){width:140px}
-  #total-time-info,#autosave-status{font-size:14px;margin-top:8px}
-  #total-time-info{color:#007bff;font-weight:600}
-  #autosave-status{color:#28a745;opacity:0;transition:opacity .3s}
-  .help{color:#666;font-size:13px;margin-top:5px;line-height:1.5}
-  .legend{font-size:13px;color:#555;margin-bottom:8px}
-  .delete-btn{background:#dc3545!important;padding:8px 12px!important;min-width:40px;border-radius:6px;font-size:18px}
-  .version{color:#007bff;font-size:13px;font-weight:bold;margin-top:10px}
+  button:hover{background:#0056b3}
+  .config-panel{display:none;margin-top:25px;padding:20px;background:#f8f9fa;border-radius:10px;text-align:left}
+  .advanced-zone{background:#e9ecef;border-radius:8px;padding:15px;margin-top:15px}
+  .program-select{width:100%;padding:8px;margin:10px 0;border-radius:6px}
+  .help{font-size:13px;color:#666;margin-top:5px}
   .error-msg{color:#dc3545;font-size:14px;margin-top:10px;display:none}
+  .version{color:#007bff;font-size:13px;margin-top:10px}
+  .flex-buttons{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+  .clean-btn{background:#6c757d;}
 </style>
 </head>
 <body>
 
 <div id="workout-container">
   <div id="image-container" class="single">
-    <div>
-      <img id="current-image" src="https://i.imgur.com/IHCEoad.png" alt="Exercice">
-      <div id="current-label" class="image-label"></div>
-    </div>
-    <div id="next-image-wrapper" style="display:none">
-      <img id="next-image" src="" alt="Suivant">
-      <div id="next-label" class="image-label">Prochain exercice</div>
-    </div>
+    <div><img id="current-image" src="https://i.imgur.com/IHCEoad.png" alt="Exercice"><div id="current-label" class="image-label"></div></div>
+    <div id="next-image-wrapper" style="display:none"><img id="next-image" src=""><div class="image-label">Prochain exercice</div></div>
   </div>
   <div id="exercise-info">Préparation</div>
   <div id="series-info"></div>
-  <div id="timer">00:10</div>
-  <div id="status">Prêt à commencer</div>
+  <div id="timer">00:15</div>
+  <div id="status">Prêt</div>
   <div class="error-msg" id="error-msg"></div>
-  <div style="margin:20px 0">
-    <button id="prev-btn">Précédent</button>
-    <button id="next-btn">Suivant</button>
+  <div class="flex-buttons">
+    <button id="prev-btn">◀ Précédent</button>
+    <button id="next-btn">Suivant ▶</button>
   </div>
-  <button id="start-btn" style="font-size:18px;padding:16px 40px">Démarrer</button><br>
-  <button id="pause-btn">Pause</button>
-  <button id="reset-btn">Réinitialiser</button>
-  <button id="config-btn">Configurer</button>
-  <div class="version">Chrono Pro V9.3 – Durées personnalisées :XXs ✓</div>
+  <button id="start-btn" style="font-size:18px;padding:16px 40px">▶ Démarrer</button>
+  <button id="pause-btn">⏸ Pause</button>
+  <button id="reset-btn">⟳ Réinitialiser</button>
+  <button id="config-btn">⚙ Configurer</button>
+  <div class="version">Chrono Pro V9.8 – Mise à jour temps réel</div>
 </div>
 
-<div id="config-panel">
-  <h2>Configuration</h2>
-  <label>Mise en place (s) : <input type="number" id="setup-time" value="15" min="0"></label><br><br>
-  <label>Séquence :</label>
-  <input type="text" id="sequence-input" value="14x(8-P20)-P30-7x(15-P20)-P30-10x(14-P20)" style="width:100%;padding:10px;font-family:monospace;font-size:15px">
-  <div class="help">
-    V9.3 = syntaxe Excel + durées personnalisées + preview suivant<br>
-    → <strong>8:45</strong> = exercice 8 pendant 45 s (ignore la durée par défaut)<br>
-    → 14x(8:40-P20)-P30-7x(15:10-P20)-P30-10x(14:90)<br>
-    → Anciennes séquences (sans :XX) restent 100% compatibles<br>
-    Pendant le repos → image du prochain exercice s'affiche automatiquement
+<div id="config-panel" class="config-panel">
+  <h3>Configuration</h3>
+  <label>Mise en place (secondes) : <input type="number" id="setup-time" value="15" min="0"></label><br>
+  <label><input type="checkbox" id="voice-toggle"> Synthèse vocale (français)</label>
+
+  <div style="margin-top:15px">
+    <label><strong>Séquence d'entraînement :</strong></label>
+    <input type="text" id="sequence-input" style="width:100%;padding:8px;font-family:monospace">
+    <div class="help">Exemple : 30x(4:10-P10)-P30-30x(11:10-P20)-P30-10x(15:40-P30)<br>
+    Formats : <code>8:40</code> (durée) ou <code>8:6@3-0-1-0</code> (tempo). Repos : <code>P30</code>.</div>
   </div>
 
-  <h3>Exercices</h3>
-  <div class="legend">[1] Nom [2] Répétitions [3] Temps travail par défaut [4] URL image</div>
-  <div id="exercise-list"></div>
+  <div class="advanced-zone">
+    <details>
+      <summary><strong>📁 Gestion des programmes (avancé)</strong></summary>
+      <label>Programmes sauvegardés :</label>
+      <select id="program-select" class="program-select">
+        <option value="">-- Charger un programme --</option>
+      </select>
+      <div class="flex-buttons">
+        <button id="save-program-btn">💾 Sauvegarder le programme courant</button>
+        <button id="delete-program-btn">🗑 Supprimer</button>
+      </div>
+      <div class="flex-buttons" style="margin-top:10px">
+        <button id="export-program-btn">📤 Exporter ce programme (fichier)</button>
+        <button id="import-program-btn">📥 Importer un programme (fichier)</button>
+        <button id="export-week-btn">📄 Exporter la semaine (texte)</button>
+        <button id="export-full-btn">💾 Exporter toute la configuration</button>
+        <button id="clean-exercises-btn" class="clean-btn">🧹 Nettoyer exos invalides</button>
+      </div>
+      <div class="help">• Exporter un programme : partagez seulement la séquence et les exercices liés. L'import fusionne avec vos exercices existants (via UUID).<br>
+      • Exporter toute la configuration : sauvegarde complète de l'application (exercices, programmes, réglages).</div>
+    </details>
+  </div>
 
-  <button id="add-exercise">+ Exercice</button>
-  <button id="save-config">Enregistrer</button>
-  <button id="export-config">Exporter JSON</button><br><br>
-  <label>Importer config : <input type="file" id="import-config" accept=".json"></label>
-  <div id="total-time-info">Temps total : …</div>
-  <div id="autosave-status"></div>
+  <h4>📋 Liste des exercices</h4>
+  <div id="exercise-list" style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px;background:white"></div>
+  <div class="flex-buttons">
+    <button id="add-exercise-btn">+ Ajouter un exercice</button>
+    <button id="save-config-btn">💾 Sauvegarder les modifications</button>
+  </div>
 </div>
 
 <script>
-// ========== AUDIO ==========
-let audioCtx = null;
-let lastBeepTime = 0;
+// ========== AUDIO & VOIX ==========
+let audioCtx = null, lastBeepTime = 0, voiceEnabled = false;
+function getAudioContext() { if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); document.body.addEventListener('touchstart', ()=>audioCtx.resume(), {once:true}); document.body.addEventListener('click', ()=>audioCtx.resume(), {once:true}); } return audioCtx; }
+function beep(freq=800, dur=200) { try { let now = Date.now(); if (now-lastBeepTime<50) return; lastBeepTime=now; let ctx=getAudioContext(); let o=ctx.createOscillator(); let g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.frequency.value=freq; o.type='sine'; g.gain.setValueAtTime(0.001, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur/1000); o.start(); o.stop(ctx.currentTime+dur/1000); } catch(e){} }
+function speak(t) { if(!voiceEnabled||!window.speechSynthesis) return; window.speechSynthesis.cancel(); let u=new SpeechSynthesisUtterance(t); u.lang='fr-FR'; u.rate=0.85; window.speechSynthesis.speak(u); }
 
-function getAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const unlock = () => { audioCtx.resume(); };
-    document.body.addEventListener('touchstart', unlock, {once:true});
-    document.body.addEventListener('click', unlock, {once:true});
-  }
-  return audioCtx;
+// ========== UUID ==========
+function uuid() { return 'xxxx-4xxx-yxxx'.replace(/[xy]/g, c=>{ let r=Math.random()*16|0, v=c=='x'?r:(r&0x3|0x8); return v.toString(16); }); }
+
+// ========== DONNÉES PRINCIPALES ==========
+let exercises = [];        // chaque exo: { id, uid, name, reps, workTime, image }
+let sequenceInputValue = "";
+let setupTime = 15;
+let isSetupPhase = true, currentBlockIndex = -1, timeLeft = 0, timerInterval = null, isPaused = false;
+let isTempoMode = false, tempoInterval = null, currentRep=0, currentPhase=0, tempoPhases=[0,0,0,0], tempoOriginal=[0,0,0,0], totalReps=0;
+let savedPrograms = [];    // [{ name, sequence, setupTime }]
+
+// ========== PARSER (V9.4) ==========
+function parseExerciseToken(t) {
+  let m = t.match(/^(\d+):(\d+)$/);
+  if(m) return { type:'exercise', id:parseInt(m[1]), duration:parseInt(m[2]) };
+  m = t.match(/^(\d+):(\d+)@(\d+-\d+-\d+-\d+)$/);
+  if(m) return { type:'exercise', id:parseInt(m[1]), reps:parseInt(m[2]), tempo:m[3] };
+  throw new Error(`Format invalide: ${t}`);
 }
-
-function beep(freq = 800, duration = 200) {
-  try {
-    const now = Date.now();
-    if (now - lastBeepTime < 50) return;
-    lastBeepTime = now;
-
-    const ctx = getAudioContext();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); 
-    g.connect(ctx.destination);
-    o.frequency.value = freq;
-    o.type = 'sine';
-    g.gain.setValueAtTime(0.001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration/1000);
-    o.start(); 
-    o.stop(ctx.currentTime + duration/1000);
-  } catch (err) {
-    console.warn("Beep failed:", err);
-  }
-}
-
-// ========== DONNÉES ==========
-let exercises = JSON.parse(localStorage.getItem('chronoPro_exercises')) || [];
-let sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "14x(8-P20)-P30-7x(15-P20)-P30-10x(14-P20)";
-let setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 15;
-
-let isSetupPhase = true;
-let currentBlockIndex = -1;
-let timeLeft = setupTime;
-let timerInterval = null;
-let isPaused = false;
-
-// ========== PARSER V9.3 ==========
 function parseSequence(input) {
   try {
-    const tokens = input.replace(/\s/g, '')
-      .match(/\d+x\(|P\d+|\d+(?::\d+)?|\+|\(|\)/g) || [];
-    
-    if (tokens.length === 0) throw new Error("Séquence vide");
-
-    const stack = [{ blocks: [], multiplier: 1 }];
-    let i = 0;
-
-    while (i < tokens.length) {
-      const t = tokens[i];
-
-      if (/^\d+x\(/.test(t)) {
-        const rounds = parseInt(t);
-        if (rounds <= 0 || rounds > 1000) throw new Error(`Répétitions invalides: ${rounds}`);
-        stack.push({ blocks: [], multiplier: rounds });
+    let tokens = input.replace(/\s/g,'').match(/\d+x\(|P\d+|\d+(?::\d+(?:@\d+-\d+-\d+-\d+)?)?|\(|\)/g) || [];
+    if(!tokens.length) throw new Error("Vide");
+    let stack = [{ blocks:[], mult:1 }];
+    let i=0;
+    while(i<tokens.length){
+      let t=tokens[i];
+      if(/^\d+x\(/.test(t)){ let r=parseInt(t); stack.push({ blocks:[], mult:r }); i++; continue; }
+      if(t=='('||t=='+'||t==')'){
+        if(t==')'){ let cur=stack.pop(); let parent=stack[stack.length-1]; for(let r=0;r<cur.mult;r++) parent.blocks.push(...cur.blocks); }
         i++; continue;
       }
-
-      if (t === '(' || t === '+' || t === ')') {
-        if (t === ')') {
-          if (stack.length <= 1) throw new Error("Parenthèse fermante sans ouverture");
-          const current = stack.pop();
-          const parent = stack[stack.length - 1];
-          for (let r = 0; r < current.multiplier; r++) parent.blocks.push(...current.blocks);
-        }
-        i++; continue;
-      }
-
-      if (t.toUpperCase().startsWith('P')) {
-        const duration = parseInt(t.slice(1)) || 0;
-        if (duration < 0 || duration > 3600) throw new Error(`Repos invalide: ${duration}`);
-        stack[stack.length - 1].blocks.push({ type: 'rest', duration });
-      } else {
-        const match = t.match(/^(\d+)(?::(\d+))?$/);
-        if (!match) throw new Error(`Format exercice invalide: ${t}`);
-        
-        const id = parseInt(match[1]);
-        if (id < 1 || id > exercises.length) throw new Error(`Exercice ${id} inexistant (1–${exercises.length})`);
-
-        let customWorkTime = undefined;
-        if (match[2]) {
-          customWorkTime = parseInt(match[2]);
-          if (customWorkTime < 1 || customWorkTime > 600) throw new Error(`Durée invalide pour exo ${id}: ${customWorkTime}s`);
-        }
-
-        stack[stack.length - 1].blocks.push({ type: 'exercise', id, workTime: customWorkTime });
-      }
+      if(t.toUpperCase().startsWith('P')){ let d=parseInt(t.slice(1)); stack[stack.length-1].blocks.push({ type:'rest', duration:d }); i++; continue; }
+      stack[stack.length-1].blocks.push(parseExerciseToken(t));
       i++;
     }
-
-    if (stack.length > 1) throw new Error("Parenthèse non fermée");
-
-    const blocks = stack[0].blocks;
-    if (blocks.length === 0) throw new Error("Aucun bloc");
-
-    return blocks;
-  } catch (err) {
-    console.error("Parse error:", err);
-    showError(`Erreur séquence : ${err.message}`);
-    return [];
-  }
+    if(stack.length>1) throw new Error("Parenthèse");
+    return stack[0].blocks;
+  } catch(e){ showError("Séquence: "+e.message); return []; }
 }
-
-function showError(msg) {
-  const el = document.getElementById("error-msg");
-  el.textContent = msg;
-  el.style.display = "block";
-  setTimeout(() => el.style.display = "none", 6000);
-}
-
-function calculateTotalTime() {
-  const blocks = parseSequence(sequenceInputValue);
-  let t = setupTime;
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
-    if (b.type === 'rest' && i === blocks.length - 1) continue;
-    if (b.type === 'exercise') {
-      const ex = exercises[b.id - 1];
-      t += b.workTime !== undefined ? b.workTime : (ex?.workTime || 30);
-    } else {
-      t += b.duration;
-    }
+function totalTime(){
+  let blocks=parseSequence(sequenceInputValue), t=setupTime;
+  for(let i=0;i<blocks.length;i++){
+    let b=blocks[i];
+    if(b.type=='rest' && i==blocks.length-1) continue;
+    if(b.type=='exercise'){
+      if(b.duration) t+=b.duration;
+      else if(b.reps && b.tempo){ let parts=b.tempo.split('-').map(Number); let cycle=parts.reduce((a,b)=>a+b,0); t+=cycle*b.reps; }
+      else t+=30;
+    } else t+=b.duration;
   }
   return t;
 }
+function formatMMSS(s){ return `${Math.floor(s/60)}`.padStart(2,'0')+':'+`${s%60}`.padStart(2,'0'); }
+function updateTotalTimeDisplay() {
+  let total = totalTime();
+  let span = document.getElementById("total-time-info");
+  if(span) span.innerHTML = `Temps total : ${Math.floor(total/60)}m ${total%60}s`;
+}
 
-const formatTime = s => `${Math.floor(s/60)}m ${s%60}s`;
-const formatMMSS = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+// ========== TEMPO ==========
+function startTempoMode(block){
+  if(timerInterval) clearInterval(timerInterval);
+  if(tempoInterval) clearInterval(tempoInterval);
+  isTempoMode=true;
+  let parts=block.tempo.split('-').map(Number);
+  tempoOriginal=[...parts]; tempoPhases=[...parts];
+  totalReps=block.reps; currentRep=1; currentPhase=0;
+  updateTempoDisplay();
+  speak(`Exercice ${getExerciseById(block.id)?.name}, ${totalReps} répétitions. Descendre.`);
+  tempoInterval=setInterval(tempoTick,1000);
+}
+function tempoTick(){
+  if(tempoPhases[currentPhase]===0){ nextPhase(); return; }
+  tempoPhases[currentPhase]--;
+  if(currentPhase===0) beep(300,80); else if(currentPhase===2) beep(800,80); else beep(500,40);
+  if(voiceEnabled && tempoPhases[currentPhase]===tempoOriginal[currentPhase]-1){
+    if(currentPhase===0) speak("descendez"); else if(currentPhase===2) speak("montez");
+    else if(currentPhase===1) speak("pause bas"); else speak("pause haut");
+  }
+  updateTempoDisplay();
+  if(tempoPhases[currentPhase]===0) nextPhase();
+}
+function nextPhase(){
+  currentPhase++;
+  if(currentPhase>=4){
+    currentRep++;
+    if(currentRep>totalReps){ stopTempoMode(); advanceBlock(); return; }
+    currentPhase=0; tempoPhases=[...tempoOriginal];
+    updateTempoDisplay(); beep(1000,100);
+    if(voiceEnabled) speak(`répétition ${currentRep}`);
+  } else tempoPhases=[...tempoOriginal];
+}
+function updateTempoDisplay(){
+  let phaseNames=["⬇️ DESC","⏸️ BAS","⬆️ MONT","⏸️ HAUT"];
+  document.getElementById("timer").innerHTML=`<span style="font-size:28px">${currentRep}/${totalReps}</span><br><span style="font-size:24px">${phaseNames[currentPhase]} ${tempoPhases[currentPhase]}s</span>`;
+  document.getElementById("status").innerHTML="TRAVAIL (TEMPO)";
+}
+function stopTempoMode(){ if(tempoInterval) clearInterval(tempoInterval); isTempoMode=false; document.getElementById("timer").style.fontSize="56px"; }
 
 // ========== AFFICHAGE ==========
-function updateDisplay() {
-  const container = document.getElementById("image-container");
-  const currentImg = document.getElementById("current-image");
-  const currentLabel = document.getElementById("current-label");
-  const nextWrapper = document.getElementById("next-image-wrapper");
-  const nextImg = document.getElementById("next-image");
-  const info = document.getElementById("exercise-info");
-  const series = document.getElementById("series-info");
-  const status = document.getElementById("status");
-
-  if (isSetupPhase) {
-    container.className = "single";
-    nextWrapper.style.display = "none";
-    currentImg.src = "https://i.imgur.com/IHCEoad.png";
-    currentLabel.textContent = "";
-    info.textContent = "Préparation";
-    series.textContent = "";
-    status.textContent = "Mise en place";
-  } else {
-    const blocks = parseSequence(sequenceInputValue);
-    if (currentBlockIndex >= blocks.length) {
-      container.className = "single";
-      nextWrapper.style.display = "none";
-      currentImg.src = "https://i.imgur.com/0pazk7c.png";  // image de fin
-      currentLabel.textContent = "";
-      info.textContent = "FINI !";
-      series.textContent = "Entraînement terminé";
-      status.textContent = "Bravo !";
-    } else {
-      const block = blocks[currentBlockIndex];
-      series.textContent = `Bloc ${currentBlockIndex + 1} / ${blocks.length}`;
-
-      if (block.type === 'exercise') {
-        container.className = "single";
-        nextWrapper.style.display = "none";
-        const ex = exercises[block.id - 1];
-        if (!ex) {
-          currentImg.src = "https://via.placeholder.com/300?text=Erreur";
-          info.textContent = "Exercice introuvable";
-          status.textContent = "ERREUR";
-        } else {
-          currentImg.src = ex.image || "https://via.placeholder.com/300?text=Exo";
-          currentLabel.textContent = "";
-          const dur = block.workTime !== undefined ? ` [${block.workTime}s]` : "";
-          info.textContent = `${ex.name} (${ex.reps})${dur}`;
-          status.textContent = "TRAVAIL";
-        }
-      } else {  // bloc repos
-  info.textContent = "Repos";
-  currentImg.src = "https://i.imgur.com/IHCEoad.png";
-  currentLabel.textContent = "Repos en cours";
-
-  // Affiche la durée du repos (ex: "REPOS 30s")
-  status.textContent = `REPOS ${block.duration}s`;
-
-  // Gestion du preview prochain exercice (inchangé)
-  const nextIdx = currentBlockIndex + 1;
-  if (nextIdx < blocks.length && blocks[nextIdx].type === 'exercise') {
-    const nextEx = exercises[blocks[nextIdx].id - 1];
-    if (nextEx) {
-      container.className = "double";
-      nextWrapper.style.display = "block";
-      nextImg.src = nextEx.image || "https://via.placeholder.com/300?text=Suivant";
-    } else {
-      container.className = "single";
-      nextWrapper.style.display = "none";
+function getExerciseById(id){ return exercises.find(e=>e.id===id); }
+function updateDisplay(){
+  let container=document.getElementById("image-container"), curImg=document.getElementById("current-image"), curLabel=document.getElementById("current-label"), nextWrap=document.getElementById("next-image-wrapper"), nextImg=document.getElementById("next-image");
+  let info=document.getElementById("exercise-info"), series=document.getElementById("series-info"), statusDiv=document.getElementById("status");
+  if(isSetupPhase){
+    container.className="single"; nextWrap.style.display="none"; curImg.src="https://i.imgur.com/IHCEoad.png"; curLabel.textContent=""; info.innerHTML="Préparation"; series.innerHTML=""; statusDiv.innerHTML="Mise en place";
+    if(!isTempoMode) document.getElementById("timer").innerHTML=formatMMSS(timeLeft);
+    return;
+  }
+  let blocks=parseSequence(sequenceInputValue);
+  if(currentBlockIndex>=blocks.length){
+    container.className="single"; nextWrap.style.display="none"; curImg.src="https://i.imgur.com/0pazk7c.png"; curLabel.textContent=""; info.innerHTML="FINI !"; series.innerHTML="Terminé"; statusDiv.innerHTML="Bravo !";
+    return;
+  }
+  let block=blocks[currentBlockIndex];
+  series.innerHTML=`Bloc ${currentBlockIndex+1} / ${blocks.length}`;
+  if(block.type==='exercise'){
+    let ex=getExerciseById(block.id);
+    if(!ex) return;
+    curImg.src=ex.image||"https://via.placeholder.com/300?text=Exo";
+    curLabel.textContent="";
+    if(block.duration!==undefined){
+      info.innerHTML=`${ex.name} (${ex.reps}) [${block.duration}s]`;
+      statusDiv.innerHTML="TRAVAIL (durée)";
+      if(!isTempoMode) document.getElementById("timer").innerHTML=formatMMSS(timeLeft);
+      container.className="single"; nextWrap.style.display="none";
+    } else if(block.tempo && block.reps){
+      info.innerHTML=`${ex.name} (${block.reps} reps @ ${block.tempo})`;
+      if(!isTempoMode) document.getElementById("timer").innerHTML="Prêt tempo";
+      container.className="single"; nextWrap.style.display="none";
     }
   } else {
-    container.className = "single";
-    nextWrapper.style.display = "none";
+    info.innerHTML="Repos"; curImg.src="https://i.imgur.com/IHCEoad.png"; curLabel.textContent="Repos";
+    statusDiv.innerHTML=`REPOS ${block.duration}s`;
+    document.getElementById("timer").innerHTML=formatMMSS(timeLeft);
+    let nextIdx=currentBlockIndex+1;
+    if(nextIdx<blocks.length && blocks[nextIdx].type==='exercise'){
+      let nextEx=getExerciseById(blocks[nextIdx].id);
+      if(nextEx){ container.className="double"; nextWrap.style.display="block"; nextImg.src=nextEx.image||"https://via.placeholder.com/300?text=Suivant"; }
+      else{ container.className="single"; nextWrap.style.display="none"; }
+    } else { container.className="single"; nextWrap.style.display="none"; }
   }
 }
-    }
-  }
 
-  document.getElementById("timer").textContent = formatMMSS(timeLeft);
-}
-
-// ========== TIMER LOGIC ==========
-function advanceBlock() {
+// ========== LOGIQUE DE JEU ==========
+function advanceBlock(){
+  if(isTempoMode) stopTempoMode();
   currentBlockIndex++;
-  const blocks = parseSequence(sequenceInputValue);
-
-  if (currentBlockIndex >= blocks.length) {
-    clearInterval(timerInterval); timerInterval = null;
-    beep(1200, 400); setTimeout(() => beep(1400, 400), 500);
-    setTimeout(() => beep(1600, 800), 1000);
-    updateDisplay();
-    return;
+  let blocks=parseSequence(sequenceInputValue);
+  if(currentBlockIndex>=blocks.length){
+    if(timerInterval) clearInterval(timerInterval);
+    beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000);
+    updateDisplay(); return;
   }
-
-  const block = blocks[currentBlockIndex];
-  if (block.type === 'rest' && currentBlockIndex === blocks.length - 1) {
-    currentBlockIndex = blocks.length;
-    clearInterval(timerInterval); timerInterval = null;
-    beep(1200, 400); setTimeout(() => beep(1400, 400), 500);
-    setTimeout(() => beep(1600, 800), 1000);
-    updateDisplay();
-    return;
+  let block=blocks[currentBlockIndex];
+  if(block.type==='rest' && currentBlockIndex===blocks.length-1){
+    currentBlockIndex=blocks.length; if(timerInterval) clearInterval(timerInterval);
+    beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000);
+    updateDisplay(); return;
   }
-
-  if (block.type === 'exercise') {
-    const ex = exercises[block.id - 1];
-    if (!ex) { advanceBlock(); return; }
-    timeLeft = block.workTime !== undefined ? block.workTime : (ex.workTime || 30);
-    beep(880, 350);
-  } else {
-    timeLeft = block.duration;
-    beep(660, 450);
-  }
+  if(block.type==='exercise'){
+    if(block.tempo && block.reps){ startTempoMode(block); updateDisplay(); return; }
+    else { let ex=getExerciseById(block.id); timeLeft=block.duration!==undefined?block.duration:(ex?.workTime||30); beep(880,350); }
+  } else { timeLeft=block.duration; beep(660,450); }
   updateDisplay();
 }
-
-function timerTick() {
-  if (timeLeft <= 5 && timeLeft > 0) {
-    beep(440 + timeLeft * 80, 120);
+function timerTick(){
+  if(timeLeft<=5 && timeLeft>0) beep(440+timeLeft*80,120);
+  if(timeLeft>0){ timeLeft--; document.getElementById("timer").innerHTML=formatMMSS(timeLeft); return; }
+  if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); }
+  advanceBlock();
+}
+function startWorkout(){
+  if(isTempoMode) return;
+  if(timerInterval && !isPaused) return;
+  if(isPaused){ isPaused=false; timerInterval=setInterval(timerTick,1000); updateDisplay(); document.getElementById("start-btn").innerHTML="Démarrer"; return; }
+  if(!isSetupPhase && currentBlockIndex>=0){ timerInterval=setInterval(timerTick,1000); updateDisplay(); return; }
+  resetWorkout(); timerInterval=setInterval(timerTick,1000);
+}
+function pauseWorkout(){
+  if(isTempoMode){ if(tempoInterval) clearInterval(tempoInterval); isPaused=true; document.getElementById("status").innerHTML="⏸ Pause tempo"; document.getElementById("start-btn").innerHTML="Reprendre"; return; }
+  if(!timerInterval) return; clearInterval(timerInterval); isPaused=true; document.getElementById("status").innerHTML="⏸ Pause"; document.getElementById("start-btn").innerHTML="Reprendre";
+}
+function resetWorkout(){
+  if(timerInterval) clearInterval(timerInterval); if(tempoInterval) clearInterval(tempoInterval); isTempoMode=false; isSetupPhase=true; currentBlockIndex=-1; timeLeft=setupTime; isPaused=false; document.getElementById("start-btn").innerHTML="Démarrer"; updateDisplay();
+}
+function prevBlock(){
+  let blocks=parseSequence(sequenceInputValue);
+  if(blocks.length===0) return;
+  if(isTempoMode) stopTempoMode();
+  if(timerInterval) clearInterval(timerInterval);
+  isPaused=true;
+  if(isSetupPhase) return;
+  currentBlockIndex=Math.max(-1, currentBlockIndex-1);
+  if(currentBlockIndex===-1){ isSetupPhase=true; timeLeft=setupTime; }
+  else {
+    let block=blocks[currentBlockIndex];
+    if(block.type==='exercise'){
+      if(block.tempo && block.reps){ currentBlockIndex--; prevBlock(); return; }
+      else { let ex=getExerciseById(block.id); timeLeft=block.duration!==undefined?block.duration:(ex?.workTime||30); }
+    } else timeLeft=block.duration;
   }
-  
-  if (timeLeft > 0) {
-    timeLeft--;
-    document.getElementById("timer").textContent = formatMMSS(timeLeft);
-    return;
-  }
-  
-  if (isSetupPhase) {
-    isSetupPhase = false;
-    currentBlockIndex = -1;
-    beep(1000, 500);
-  }
+  updateDisplay(); document.getElementById("start-btn").innerHTML="Reprendre";
+}
+function nextBlock(){
+  let blocks=parseSequence(sequenceInputValue);
+  if(blocks.length===0) return;
+  if(isTempoMode) stopTempoMode();
+  if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); advanceBlock(); return; }
+  if(currentBlockIndex>=blocks.length-1){ currentBlockIndex=blocks.length; if(timerInterval) clearInterval(timerInterval); beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000); updateDisplay(); return; }
   advanceBlock();
 }
 
-// ========== CONTROLS ==========
-function startWorkout() {
-  if (timerInterval && !isPaused) return;
-
-  if (isPaused) {
-    isPaused = false;
-    timerInterval = setInterval(timerTick, 1000);
-    updateDisplay();
-    document.getElementById("start-btn").textContent = "Démarrer";
-    return;
-  }
-
-  // Nouveau : si on a déjà avancé manuellement (Suivant cliqué en prep), on ne reset pas
-  if (!isSetupPhase && currentBlockIndex >= 0) {
-    // On est déjà sorti de prep → on reprend là où on est
-    timerInterval = setInterval(timerTick, 1000);
-    updateDisplay();
-    document.getElementById("start-btn").textContent = "Démarrer";
-    return;
-  }
-
-  // Sinon (vrai démarrage depuis prep sans avoir touché Suivant) → reset complet
-  resetWorkout();
-  timerInterval = setInterval(timerTick, 1000);
+// ========== GESTION EXERCICES ==========
+function getNextId(){ return exercises.length?Math.max(...exercises.map(e=>e.id))+1:1; }
+function addExercise(uid=null, name="Nouvel exo", reps="8-12", workTime=40, image=""){
+  let newId=getNextId();
+  exercises.push({ id:newId, uid:uid||uuid(), name, reps, workTime, image });
+  renderExercises(); saveAll();
 }
-
-function pauseWorkout() {
-  if (!timerInterval) return;
-  clearInterval(timerInterval); timerInterval = null;
-  isPaused = true;
-  document.getElementById("status").textContent = "⏸ Pause";
-  document.getElementById("start-btn").textContent = "Reprendre";
+function updateIdMapping(){
+  exercises.sort((a,b)=>a.id-b.id);
+  let oldToNew={}, newId=1;
+  for(let ex of exercises){ oldToNew[ex.id]=newId; ex.id=newId++; }
+  let newSeq=sequenceInputValue;
+  for(let old in oldToNew) newSeq=newSeq.replace(new RegExp(`\\b${old}(?=:|@)`,'g'), oldToNew[old]);
+  sequenceInputValue=newSeq; document.getElementById("sequence-input").value=sequenceInputValue; saveAll();
 }
-
-function resetWorkout() {
-  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  isSetupPhase = true;
-  currentBlockIndex = -1;
-  timeLeft = setupTime;
-  isPaused = false;
-  document.getElementById("start-btn").textContent = "Démarrer";
-  updateDisplay();
-}
-
-function prevBlock() {
-  const blocks = parseSequence(sequenceInputValue);
-  if (blocks.length === 0) return;
-
-  // Si on est en préparation → rien à faire
-  if (isSetupPhase) {
-    return;
+function renderExercises(){
+  let list=document.getElementById("exercise-list");
+  list.innerHTML="";
+  for(let i=0;i<exercises.length;i++){
+    let ex=exercises[i];
+    let d=document.createElement("div"); d.style.borderBottom="1px solid #ccc"; d.style.padding="8px 0"; d.style.display="flex"; d.style.flexWrap="wrap"; d.style.gap="8px"; d.style.alignItems="center";
+    d.innerHTML=`
+      <span style="font-weight:bold">${ex.id}</span>
+      <input type="text" value="${(ex.name||"").replace(/"/g,'&quot;')}" onchange="exercises[${i}].name=this.value; saveAll(); renderExercises()" style="width:120px">
+      <input type="text" value="${(ex.reps||"").replace(/"/g,'&quot;')}" onchange="exercises[${i}].reps=this.value; saveAll()" style="width:60px">
+      <input type="number" value="${ex.workTime||40}" min="1" max="300" onchange="exercises[${i}].workTime=Math.max(1,parseInt(this.value)||30); saveAll()" style="width:60px">
+      <input type="text" placeholder="URL image" value="${ex.image||''}" onchange="exercises[${i}].image=this.value; saveAll()" style="width:150px">
+      <input type="file" accept="image/*" onchange="((f)=>{if(f){let r=new FileReader(); r.onload=e=>{exercises[${i}].image=e.target.result; saveAll(); renderExercises();}; r.readAsDataURL(f)}})(this.files[0])">
+      <button onclick="if(confirm('Supprimer ?')){exercises.splice(${i},1); updateIdMapping(); saveAll(); renderExercises();}" style="background:#dc3545;padding:4px 12px">✕</button>
+      <span style="font-size:10px;color:#888">${(ex.uid||"").slice(0,6)}</span>
+    `;
+    list.appendChild(d);
   }
-
-  // On recule d’un cran (même si on est à FINI ou après)
-  currentBlockIndex = Math.max(-1, currentBlockIndex - 1);
-
-  // Si on arrive à -1 → on repasse en phase préparation
-  if (currentBlockIndex === -1) {
-    isSetupPhase = true;
-    timeLeft = setupTime;
+}
+function cleanInvalidExercises() {
+  let before = exercises.length;
+  exercises = exercises.filter(ex => ex && typeof ex.name === 'string' && ex.name.trim() !== '' && ex.name !== 'undefined' && ex.name !== 'null');
+  if (exercises.length !== before) {
+    updateIdMapping();
+    saveAll();
+    showAutoSave(`🧹 Nettoyage : ${before - exercises.length} exercice(s) invalide(s) supprimé(s).`);
+    renderExercises();
   } else {
-    // Bloc normal → on charge le temps correspondant
-    const block = blocks[currentBlockIndex];
-
-    if (block.type === 'exercise') {
-      const ex = exercises[block.id - 1];
-      timeLeft = (block.workTime !== undefined) ? block.workTime : (ex?.workTime || 30);
-    } else {
-      timeLeft = block.duration;
+    showAutoSave("Aucun exercice invalide trouvé.");
+  }
+}
+// Nettoie la séquence : supprime les références à des IDs d'exercices qui n'existent plus
+function cleanSequenceFromMissingIds() {
+  let blocks = parseSequence(sequenceInputValue);
+  let validIds = new Set(exercises.map(e => e.id));
+  let modified = false;
+  let newBlocks = [];
+  for (let block of blocks) {
+    if (block.type === 'exercise' && !validIds.has(block.id)) {
+      modified = true;
+      continue; // on supprime ce bloc
     }
+    newBlocks.push(block);
   }
-
-  // On arrête toujours le timer quand on change de bloc manuellement
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+  if (modified) {
+    // Reconstruire la séquence sous forme de chaîne (simplifié)
+    let newSeqParts = [];
+    for (let block of newBlocks) {
+      if (block.type === 'rest') newSeqParts.push(`P${block.duration}`);
+      else if (block.type === 'exercise') {
+        if (block.duration !== undefined) newSeqParts.push(`${block.id}:${block.duration}`);
+        else if (block.tempo && block.reps) newSeqParts.push(`${block.id}:${block.reps}@${block.tempo}`);
+      }
+    }
+    sequenceInputValue = newSeqParts.join('-');
+    document.getElementById("sequence-input").value = sequenceInputValue;
+    showAutoSave("⚠️ La séquence contenait des exercices supprimés. Elle a été nettoyée.");
+    saveAll();
   }
-  isPaused = true;
-
-  // Mise à jour visuelle
-  updateDisplay();
-
-  // On met le bouton en mode "Reprendre" pour que ce soit clair
-  document.getElementById("start-btn").textContent = "Reprendre";
 }
 
-function nextBlock() {
-  const blocks = parseSequence(sequenceInputValue);
-  if (blocks.length === 0) return;
-
-  if (isSetupPhase) {
-    // Sortir de la préparation
-    isSetupPhase = false;
-    currentBlockIndex = -1;
-    beep(1000, 500);
-    advanceBlock();
-    return;
-  }
-
-  // Si on est déjà à la fin ou au-delà
-  if (currentBlockIndex >= blocks.length - 1) {
-    currentBlockIndex = blocks.length;
-    timeLeft = 0;
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
-    beep(1200, 400);
-    setTimeout(() => beep(1400, 400), 500);
-    setTimeout(() => beep(1600, 800), 1000);
-    updateDisplay();
-    return;
-  }
-
-  // Avance normalement
-  advanceBlock();
+// ========== PROGRAMMES ==========
+function loadSavedPrograms(){
+  let stored=localStorage.getItem('chronoPro_savedPrograms');
+  savedPrograms=stored?JSON.parse(stored):[];
+  let sel=document.getElementById("program-select");
+  sel.innerHTML='<option value="">-- Charger un programme --</option>';
+  for(let p of savedPrograms){ let opt=document.createElement("option"); opt.value=p.name; opt.textContent=p.name; sel.appendChild(opt); }
 }
-
-// ========== CONFIG ==========
-function saveAll() {
-  sequenceInputValue = document.getElementById("sequence-input").value.trim();
-  setupTime = parseInt(document.getElementById("setup-time").value) || 15;
-  
-  if (parseSequence(sequenceInputValue).length === 0) {
-    showError("Séquence invalide → non sauvegardée");
-    return;
+function saveCurrentProgram(){
+  // On s'assure d'avoir la dernière valeur du champ
+  let newSeq = document.getElementById("sequence-input").value;
+  let newSetup = parseInt(document.getElementById("setup-time").value) || 15;
+  if(newSeq !== sequenceInputValue) {
+    sequenceInputValue = newSeq;
+    setupTime = newSetup;
   }
-  
+  let name=prompt("Nom du programme :","Mon programme");
+  if(!name) return;
+  let existing=savedPrograms.find(p=>p.name===name);
+  if(existing && !confirm(`Écraser "${name}" ?`)) return;
+  if(existing){ existing.sequence=sequenceInputValue; existing.setupTime=setupTime; }
+  else savedPrograms.push({ name, sequence:sequenceInputValue, setupTime });
+  localStorage.setItem('chronoPro_savedPrograms', JSON.stringify(savedPrograms));
+  loadSavedPrograms(); showAutoSave("Programme sauvegardé");
+}
+function deleteSelectedProgram(){
+  let sel=document.getElementById("program-select");
+  let name=sel.value;
+  if(!name) { alert("Sélectionnez un programme"); return; }
+  if(!confirm(`Supprimer "${name}" ?`)) return;
+  savedPrograms=savedPrograms.filter(p=>p.name!==name);
+  localStorage.setItem('chronoPro_savedPrograms', JSON.stringify(savedPrograms));
+  loadSavedPrograms(); showAutoSave("Programme supprimé");
+}
+function loadSelectedProgram(){
+  let name=document.getElementById("program-select").value;
+  if(!name) return;
+  let prog=savedPrograms.find(p=>p.name===name);
+  if(prog){
+    sequenceInputValue = prog.sequence;
+    setupTime = prog.setupTime;
+    document.getElementById("sequence-input").value = sequenceInputValue;
+    document.getElementById("setup-time").value = setupTime;
+    saveAll(); // met à jour localStorage et l'affichage du temps total
+    showAutoSave(`Programme "${name}" chargé`);
+    updateTotalTimeDisplay();
+  }
+}
+function exportProgram(){
+  let blocks=parseSequence(sequenceInputValue);
+  let usedIds=new Set(); for(let b of blocks) if(b.type==='exercise') usedIds.add(b.id);
+  let usedEx=exercises.filter(ex=>usedIds.has(ex.id)).map(({id,uid,name,reps,workTime,image})=>({id,uid,name,reps,workTime,image}));
+  let name=prompt("Nom du programme à exporter :", "Mon programme");
+  if(!name) return;
+  let data={ name, sequence:sequenceInputValue, setupTime, exercises:usedEx };
+  let blob=new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`program_${name.replace(/[^a-z0-9]/gi,'_')}.json`; a.click(); URL.revokeObjectURL(blob.href);
+}
+function importProgramFile(file){
+  let reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      let prog=JSON.parse(ev.target.result);
+      if(!prog.sequence||!prog.exercises) throw new Error("Format invalide");
+      let uidToLocalId=new Map();
+      for(let impEx of prog.exercises){
+        if(!impEx.uid) impEx.uid=uuid();
+        let existing=exercises.find(e=>e.uid===impEx.uid);
+        if(existing) uidToLocalId.set(impEx.uid, existing.id);
+        else{
+          let newId=getNextId();
+          exercises.push({ id:newId, uid:impEx.uid, name:impEx.name, reps:impEx.reps, workTime:impEx.workTime, image:impEx.image||"" });
+          uidToLocalId.set(impEx.uid, newId);
+        }
+      }
+      let newSeq=prog.sequence;
+      for(let impEx of prog.exercises){
+        let oldId=impEx.id, newId=uidToLocalId.get(impEx.uid);
+        if(oldId && newId) newSeq=newSeq.replace(new RegExp(`\\b${oldId}(?=:|@)`,'g'), newId);
+      }
+      sequenceInputValue=newSeq; setupTime=prog.setupTime!==undefined?prog.setupTime:setupTime;
+      document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime;
+      saveAll(); showAutoSave("Programme importé (fusion UUID)");
+      loadSavedPrograms();
+      updateTotalTimeDisplay();
+    } catch(err){ alert("Erreur import: "+err.message); }
+  };
+  reader.readAsText(file);
+}
+function exportWeekText(){
+  let content="=== Programme de la semaine ===\n\n";
+  content+=`Séquence :\n${sequenceInputValue}\n\nTemps total : ${Math.floor(totalTime()/60)}m ${totalTime()%60}s\n\nExercices utilisés :\n`;
+  let blocks=parseSequence(sequenceInputValue);
+  let usedIds=new Set(); for(let b of blocks) if(b.type==='exercise') usedIds.add(b.id);
+  for(let id of usedIds){ let ex=getExerciseById(id); if(ex) content+=`- [${id}] ${ex.name} (${ex.reps}) - ${ex.workTime}s\n`; }
+  let blob=new Blob([content], {type:'text/plain'});
+  let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`semaine_${new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(blob.href);
+}
+function exportFull(){
+  let data={ exercises, sequence:sequenceInputValue, setupTime, voiceEnabled, savedPrograms };
+  let blob=new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`chrono_full_${new Date().toISOString().slice(0,19)}.json`; a.click(); URL.revokeObjectURL(blob.href);
+}
+function importFull(file){
+  let reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      let data=JSON.parse(ev.target.result);
+      exercises=data.exercises||[]; sequenceInputValue=data.sequence||sequenceInputValue; setupTime=data.setupTime||setupTime; voiceEnabled=data.voiceEnabled||false; savedPrograms=data.savedPrograms||[];
+      saveAll(); renderExercises(); document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime; document.getElementById("voice-toggle").checked=voiceEnabled; loadSavedPrograms(); alert("Import complet réussi");
+      updateTotalTimeDisplay();
+    } catch(err){ alert("Fichier invalide"); }
+  };
+  reader.readAsText(file);
+}
+function saveAll(){
   localStorage.setItem('chronoPro_exercises', JSON.stringify(exercises));
   localStorage.setItem('chronoPro_sequence', sequenceInputValue);
   localStorage.setItem('chronoPro_setupTime', setupTime);
-  
-  document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
-  const s = document.getElementById("autosave-status");
-  s.textContent = "✓ Sauvegardé";
-  s.style.opacity = 1;
-  setTimeout(() => s.style.opacity = 0, 2000);
-  
+  localStorage.setItem('chronoPro_voice', voiceEnabled);
+  updateTotalTimeDisplay();
+  showAutoSave("✓ Sauvegardé");
   updateDisplay();
 }
+function showAutoSave(msg){ let el=document.getElementById("autosave-status"); if(el){ el.textContent=msg; el.style.opacity=1; setTimeout(()=>el.style.opacity=0,2000);} else console.log(msg); }
+function showError(msg){ let el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; setTimeout(()=>el.style.display="none",6000); }
 
-function renderExercises() {
-  const list = document.getElementById("exercise-list");
-  list.innerHTML = "";
-  
-  exercises.forEach((ex, i) => {
-    const d = document.createElement("div");
-    d.className = "exercise-entry";
-    d.innerHTML = `
-      <input type="text" value="${ex.name.replace(/"/g,'&quot;')}" onchange="exercises[${i}].name=this.value;saveAll()">
-      <input type="text" value="${ex.reps.replace(/"/g,'&quot;')}" onchange="exercises[${i}].reps=this.value;saveAll()">
-      <input type="number" value="${ex.workTime}" min="1" max="300" onchange="exercises[${i}].workTime=Math.max(1,parseInt(this.value)||30);saveAll()">
-      <input type="text" placeholder="URL image" value="${ex.image||''}" onchange="exercises[${i}].image=this.value;saveAll()">
-      <input type="file" accept="image/*" onchange="((f)=>{if(f){const r=new FileReader();r.onload=e=>{exercises[${i}].image=e.target.result;saveAll();renderExercises()};r.readAsDataURL(f)}})(this.files[0])">
-      <button class="delete-btn" title="Supprimer" onclick="if(confirm('Supprimer ?')){exercises.splice(${i},1);renderExercises();saveAll()}">✕</button>
-    `;
-    list.appendChild(d);
-  });
-}
-
-// ========== EVENTS ==========
-document.getElementById("prev-btn").onclick = prevBlock;
-document.getElementById("next-btn").onclick = nextBlock;
-document.getElementById("start-btn").onclick = startWorkout;
-document.getElementById("pause-btn").onclick = pauseWorkout;
-document.getElementById("reset-btn").onclick = resetWorkout;
-
-document.getElementById("config-btn").onclick = () => {
-  const p = document.getElementById("config-panel");
-  const visible = p.style.display === "block";
-  p.style.display = visible ? "none" : "block";
-  if (!visible) {
-    document.getElementById("sequence-input").value = sequenceInputValue;
-    document.getElementById("setup-time").value = setupTime;
-    renderExercises();
-    saveAll();
+// ========== SYNCHRONISATION TEMPS RÉEL ==========
+function syncSequenceFromInput() {
+  let newSeq = document.getElementById("sequence-input").value;
+  if(newSeq !== sequenceInputValue) {
+    sequenceInputValue = newSeq;
+    updateTotalTimeDisplay();
   }
-};
-
-document.getElementById("add-exercise").onclick = () => {
-  exercises.push({name:"Nouvel exo", reps:"8-12", workTime:40, image:""});
-  renderExercises();
-  saveAll();
-};
-
-document.getElementById("save-config").onclick = saveAll;
-
-document.getElementById("export-config").onclick = () => {
-  const data = {exercises, sequence: sequenceInputValue, setupTime};
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'chrono_pro_v9.3_config.json';
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
-document.getElementById("import-config").onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const d = JSON.parse(ev.target.result);
-      exercises = d.exercises || [];
-      sequenceInputValue = d.sequence || "1-P30-2";
-      setupTime = d.setupTime || 15;
-      saveAll();
-      renderExercises();
-      document.getElementById("sequence-input").value = sequenceInputValue;
-      document.getElementById("setup-time").value = setupTime;
-      alert("Import V9.3 OK !");
-    } catch(err) {
-      alert("Fichier JSON invalide\n" + err.message);
-    }
-  };
-  reader.readAsText(file);
-};
-
-// ========== INIT ==========
-renderExercises();
-updateDisplay();
-document.getElementById("total-time-info").textContent = `Temps total : ${formatTime(calculateTotalTime())}`;
-
-if (parseSequence(sequenceInputValue).length === 0) {
-  showError("⚠ Séquence invalide au démarrage – vérifiez config");
 }
+function syncSetupFromInput() {
+  let newSetup = parseInt(document.getElementById("setup-time").value);
+  if(!isNaN(newSetup) && newSetup !== setupTime) {
+    setupTime = newSetup;
+    updateTotalTimeDisplay();
+  }
+}
+
+// ========== INITIALISATION AVEC NETTOYAGE AUTOMATIQUE ==========
+function init(){
+  // 1. Chargement des exercices depuis localStorage
+  let stored = localStorage.getItem('chronoPro_exercises');
+  if(stored) {
+    try {
+      exercises = JSON.parse(stored);
+    } catch(e) { exercises = []; }
+  }
+  
+  // 2. Nettoyage radical : on garde seulement les exercices valides (nom non vide, non 'undefined', non 'null')
+  const before = exercises.length;
+  exercises = exercises.filter(ex => {
+    if (!ex) return false;
+    let name = ex.name;
+    return name && typeof name === 'string' && name.trim() !== '' && name !== 'undefined' && name !== 'null';
+  });
+  // Si on a perdu plus de 30% des exos ou si la liste est vide, on réinitialise complètement avec les defaults
+  if (exercises.length === 0 || (before > 0 && exercises.length < before * 0.7)) {
+    console.log("Corruption détectée ou exercices insuffisants. Réinitialisation avec les 32 exercices par défaut.");
+    const defaultExercises = [
+      {"name":"1. Dips lestés","reps":"3–5 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/07/Ring-Dips.gif"},
+      {"name":"2. Pompes piquées / HSPU","reps":"4–6 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/06/Bench-Pike-Push-up.gif"},
+      {"name":"3. Pompes lestées","reps":"6–8 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2015/07/Decline-Push-Up.gif"},
+      {"name":"4. Pistol squat","reps":"2–4 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/09/Kettlebell-Pistol-Squats.gif"},
+      {"name":"5. Pull-up","reps":"3–4 reps","workTime":40,"image":"https://i.imgur.com/mKmOcNS.gif"},
+      {"name":"6. Archer push-up","reps":"6–8 reps","workTime":40,"image":"https://burnfit.io/en/wp-content/uploads/sites/3/2026/01/ARCHER_PUSH_UP.gif"},
+      {"name":"7. Bulgarian push-up","reps":"6–8 reps","workTime":40,"image":"https://www.sport-equipements.fr/wp-content/uploads/2023/05/bulgarian-pushup.gif"},
+      {"name":"8. Knee over toe lunge / ATG split squat","reps":"4–6 reps","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/12/ATG-Split-Squat.gif"},
+      {"name":"9. Navy seal burpee","reps":"1 reps","workTime":30,"image":"https://fitnessprogramer.com/wp-content/uploads/2023/10/Navy-Seal-Burpee.gif"},
+      {"name":"10. Nordic Curl","reps":"4–6 reps","workTime":40,"image":"https://www.docteur-fitness.com/wp-content/uploads/2022/09/nordic-hamstring-curl-avec-elastique.gif"},
+      {"name":"11. RDL","reps":"4–6 reps","workTime":40,"image":"https://gymvisual.com/img/p/2/0/3/6/9/20369.gif"},
+      {"name":"12. Archer pull up","reps":"2–4 reps","workTime":40,"image":"https://gymvisual.com/img/p/3/8/2/4/3/38243.gif"},
+      {"name":"13. Bands rowing","reps":"10-15","workTime":40,"image":"https://gymvisual.com/img/p/1/8/4/4/6/18446.gif"},
+      {"name":"14. Kneeling squat","reps":"8-12","workTime":40,"image":"https://www.inspireusafoundation.org/wp-content/uploads/2021/12/how-to-do-a-kneeling-squat.gif"},
+      {"name":"15. Lying leg curl","reps":"8-12","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/05/Lying-leg-curl.gif"},
+      {"name":"16. Ring Inverted Row","reps":"8-12","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/01/Ring-Inverted-Row.gif"},
+      {"name":"17. Dumbbell Bench-Press","reps":"12-18","workTime":60,"image":"https://gymvisual.com/img/p/5/0/2/2/5022.gif"},
+      {"name":"18. Banded Push up","reps":"20","workTime":60,"image":"https://gymvisual.com/img/p/2/1/7/7/6/21776.gif"},
+      {"name":"19. Inclined 45° Bench Press","reps":"12-18","workTime":60,"image":"https://homeworkouts.org/wp-content/uploads/anim-dumbbell-bench-press.gif"},
+      {"name":"20. Chest rings fly","reps":"10-15","workTime":45,"image":"https://gymvisual.com/img/p/2/0/3/6/2/20362.gif"},
+      {"name":"21. Crossover Bands","reps":"15-20","workTime":60,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/09/Resistance-Band-Alternating-Chest-Fly.gif"},
+      {"name":"22. Band-Standing-Chest-Press","reps":"12","workTime":45,"image":"https://fitnessprogramer.com/wp-content/uploads/2022/01/Band-Standing-Chest-Press.gif"},
+      {"name":"23. Standing Chest fly elastic bands","reps":"6-8-10","workTime":40,"image":"https://www.hipertrofia.org/blog/wp-content/uploads/2025/06/voador-usando-elasticos-V2.gif"},
+      {"name":"24. Single arm Cross over","reps":"6-3sec+6 direto","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/10/Single-Arm-Cable-Crossover.gif"},
+      {"name":"25. Pull Over slow descent","reps":"3-12-15","workTime":60,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Pullover.gif"},
+      {"name":"26. Straight arms pulldown hard low","reps":"12-6","workTime":60,"image":"https://gymvisual.com/img/p/2/1/7/8/0/21780.gif"},
+      {"name":"27. Rowing ring hook","reps":"8-15","workTime":45,"image":"https://gymvisual.com/img/p/2/0/3/6/1/20361.gif"},
+      {"name":"28. Fly dumbell","reps":"8-12","workTime":40,"image":"https://imgs.search.brave.com/IwBJQ8PgolwhHVH0wK4kAWAQ9etZgyRrlhRN4fTXYw4/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93d3cu/ZG9jdGV1ci1maXRu/ZXNzLmNvbS93cC1j/b250ZW50L3VwbG9h/ZHMvMjAyMi8wOS9l/Y2FydGUtY291Y2hl/LWhhbHRlcmUuZ2lm.gif"},
+      {"name":"29. Over head press","reps":"8-12","workTime":40,"image":"https://fitnessprogramer.com/wp-content/uploads/2021/04/Cable-Shoulder-Press.gif"},
+      {"name":"30. One arm pull down","reps":"10-8-6","workTime":40,"image":"https://gymvisual.com/img/p/2/1/8/6/9/21869.gif"},
+      {"name":"31. Pull down ","reps":"12-10-8","workTime":40,"image":"https://gymvisual.com/img/p/2/1/6/2/4/21624.gif"},
+      {"name":"32. Close grip pull down","reps":"12","workTime":40,"image":"https://gymvisual.com/img/p/1/2/4/5/3/12453.gif"}
+    ];
+    exercises = defaultExercises.map((ex,idx)=>({ id:idx+1, uid:uuid(), name:ex.name, reps:ex.reps, workTime:ex.workTime, image:ex.image }));
+    // On sauvegarde immédiatement pour remplacer l'ancienne version corrompue
+    localStorage.setItem('chronoPro_exercises', JSON.stringify(exercises));
+  }
+  
+  // 3. Pour chaque exercice, garantir un uid
+  for(let ex of exercises) if(!ex.uid) ex.uid = uuid();
+  
+  // 4. Chargement des autres paramètres
+  sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "30x(4:10-P10)-P30-30x(11:10-P20)-P30-10x(15:40-P30)";
+  setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 15;
+  voiceEnabled = localStorage.getItem('chronoPro_voice') === 'true';
+  
+  // 5. Nettoyage de la séquence : supprimer les références à des IDs invalides
+  cleanSequenceFromMissingIds();
+  
+  // 6. Mise à jour de l'interface
+  document.getElementById("sequence-input").value = sequenceInputValue;
+  document.getElementById("setup-time").value = setupTime;
+  document.getElementById("voice-toggle").checked = voiceEnabled;
+  
+  // Écouteurs pour la mise à jour temps réel
+  document.getElementById("sequence-input").addEventListener("input", syncSequenceFromInput);
+  document.getElementById("setup-time").addEventListener("input", syncSetupFromInput);
+  
+  loadSavedPrograms();
+  renderExercises();
+  updateDisplay();
+  updateTotalTimeDisplay();
+  
+  // Ajout du temps total (élément s'il n'existe pas)
+  let infoDiv = document.getElementById("total-time-info");
+  if(!infoDiv){
+    let p = document.getElementById("config-panel");
+    let div = document.createElement("div");
+    div.id = "total-time-info";
+    div.style.marginTop = "10px";
+    div.style.fontWeight = "bold";
+    p.appendChild(div);
+  }
+  updateTotalTimeDisplay();
+  
+  // Événements
+  document.getElementById("prev-btn").onclick = prevBlock;
+  document.getElementById("next-btn").onclick = nextBlock;
+  document.getElementById("start-btn").onclick = startWorkout;
+  document.getElementById("pause-btn").onclick = pauseWorkout;
+  document.getElementById("reset-btn").onclick = resetWorkout;
+  document.getElementById("config-btn").onclick = () => { let p=document.getElementById("config-panel"); p.style.display = p.style.display==="block" ? "none" : "block"; if(p.style.display==="block"){ document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime; document.getElementById("voice-toggle").checked=voiceEnabled; renderExercises(); } };
+  document.getElementById("add-exercise-btn").onclick = () => addExercise();
+  document.getElementById("save-config-btn").onclick = saveAll;
+  document.getElementById("save-program-btn").onclick = saveCurrentProgram;
+  document.getElementById("delete-program-btn").onclick = deleteSelectedProgram;
+  document.getElementById("program-select").onchange = loadSelectedProgram;
+  document.getElementById("export-program-btn").onclick = exportProgram;
+  document.getElementById("import-program-btn").onclick = () => { let input=document.createElement('input'); input.type='file'; input.accept='.json'; input.onchange=e=>{ if(e.target.files[0]) importProgramFile(e.target.files[0]); }; input.click(); };
+  document.getElementById("export-week-btn").onclick = exportWeekText;
+  document.getElementById("export-full-btn").onclick = exportFull;
+  document.getElementById("clean-exercises-btn").onclick = () => { cleanInvalidExercises(); cleanSequenceFromMissingIds(); updateTotalTimeDisplay(); };
+  
+  let importFullBtn = document.createElement("button"); importFullBtn.innerHTML = "📥 Importer configuration complète"; importFullBtn.onclick = () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ if(e.target.files[0]) importFull(e.target.files[0]); }; inp.click(); };
+  document.querySelector(".advanced-zone .flex-buttons").appendChild(importFullBtn);
+}
+init();
 </script>
 </body>
 </html>
