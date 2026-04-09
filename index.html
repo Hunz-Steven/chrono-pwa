@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.12 – Correction reprise après tempo</title>
+<title>Chrono Pro V9.14 – Reprise tempo et navigation corrigées</title>
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
@@ -49,7 +49,7 @@
   <button id="pause-btn">⏸ Pause</button>
   <button id="reset-btn">⟳ Réinitialiser</button>
   <button id="config-btn">⚙ Configurer</button>
-  <div class="version">Chrono Pro V9.12 – Correction reprise après tempo</div>
+  <div class="version">Chrono Pro V9.14 – Reprise tempo et navigation corrigées</div>
 </div>
 
 <div id="config-panel" class="config-panel">
@@ -172,7 +172,7 @@ function updateTotalTimeDisplay() {
 
 // ========== TEMPO ==========
 function startTempoMode(block){
-  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; } // ← FIX : remettre à null
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   if(tempoInterval) clearInterval(tempoInterval);
   isTempoMode=true;
   isPaused=false;
@@ -258,7 +258,7 @@ function updateDisplay(){
   }
 }
 
-// ========== LOGIQUE DE JEU ==========
+// ========== LOGIQUE PRINCIPALE ==========
 function advanceBlock(){
   if(isTempoMode) stopTempoMode();
   currentBlockIndex++;
@@ -281,12 +281,13 @@ function advanceBlock(){
   } else { timeLeft=block.duration; beep(660,450); }
   updateDisplay();
   
-  // FORCER le redémarrage du minuteur pour les blocs non-tempo (y compris repos)
+  // Redémarrer le minuteur pour les blocs non-tempo, sauf si en pause
   if (!isTempoMode && !isPaused) {
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(timerTick, 1000);
   }
 }
+
 function timerTick(){
   if(isPaused) return;
   if(timeLeft<=5 && timeLeft>0) beep(440+timeLeft*80,120);
@@ -294,10 +295,12 @@ function timerTick(){
   if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); }
   advanceBlock();
 }
+
 function startWorkout(){
   getAudioContext();
   if(window.speechSynthesis) { window.speechSynthesis.cancel(); }
   
+  // Reprise après pause
   if(isPaused) {
     isPaused = false;
     if(isTempoMode && tempoInterval === null) {
@@ -310,20 +313,57 @@ function startWorkout(){
     return;
   }
   
-  if(isTempoMode) return;
-  if(timerInterval && !isPaused) return;
+  // Si déjà en cours (hors pause)
+  if((isTempoMode && tempoInterval !== null) || (!isTempoMode && timerInterval !== null)) return;
   
-  if(isSetupPhase || currentBlockIndex === -1 || timerInterval === null) {
-    resetWorkout();
+  // Cas où on est sur un bloc spécifique (navigation manuelle) ou phase préparation
+  if(isSetupPhase) {
+    resetWorkoutInternal();
     timerInterval = setInterval(timerTick, 1000);
     updateDisplay();
     document.getElementById("start-btn").innerHTML = "Démarrer";
     return;
   }
   
-  timerInterval = setInterval(timerTick, 1000);
+  let blocks = parseSequence(sequenceInputValue);
+  if(currentBlockIndex >= 0 && currentBlockIndex < blocks.length) {
+    let block = blocks[currentBlockIndex];
+    if(block.type === 'exercise' && block.tempo && block.reps) {
+      // Lancer le mode tempo
+      startTempoMode(block);
+      updateDisplay();
+      return;
+    } else {
+      // Lancer le minuteur classique
+      if(timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(timerTick, 1000);
+      updateDisplay();
+    }
+  } else {
+    // Sécurité : réinitialiser
+    resetWorkoutInternal();
+    timerInterval = setInterval(timerTick, 1000);
+    updateDisplay();
+  }
+  document.getElementById("start-btn").innerHTML = "Démarrer";
+}
+
+function resetWorkoutInternal(){
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if(tempoInterval) { clearInterval(tempoInterval); tempoInterval = null; }
+  isTempoMode = false;
+  isSetupPhase = true;
+  currentBlockIndex = -1;
+  timeLeft = setupTime;
+  isPaused = false;
+}
+
+function resetWorkout(){
+  resetWorkoutInternal();
+  document.getElementById("start-btn").innerHTML = "Démarrer";
   updateDisplay();
 }
+
 function pauseWorkout(){
   if(isTempoMode) {
     if(tempoInterval) {
@@ -342,42 +382,96 @@ function pauseWorkout(){
   document.getElementById("status").innerHTML = "⏸ Pause";
   document.getElementById("start-btn").innerHTML = "Reprendre";
 }
-function resetWorkout(){
-  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  if(tempoInterval) { clearInterval(tempoInterval); tempoInterval = null; }
-  isTempoMode = false;
-  isSetupPhase = true;
-  currentBlockIndex = -1;
-  timeLeft = setupTime;
-  isPaused = false;
-  document.getElementById("start-btn").innerHTML = "Démarrer";
-  updateDisplay();
-}
+
 function prevBlock(){
   let blocks=parseSequence(sequenceInputValue);
   if(blocks.length===0) return;
   if(isTempoMode) stopTempoMode();
+  
+  // Stoppe le minuteur s'il tourne
   if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  isPaused=true;
-  if(isSetupPhase) return;
-  currentBlockIndex=Math.max(-1, currentBlockIndex-1);
-  if(currentBlockIndex===-1){ isSetupPhase=true; timeLeft=setupTime; }
-  else {
-    let block=blocks[currentBlockIndex];
-    if(block.type==='exercise'){
-      if(block.tempo && block.reps){ currentBlockIndex--; prevBlock(); return; }
-      else { let ex=getExerciseById(block.id); timeLeft=block.duration!==undefined?block.duration:(ex?.workTime||30); }
-    } else timeLeft=block.duration;
+  isPaused = false; // On sort de la pause si on navigue manuellement
+  
+  if(isSetupPhase) {
+    // Déjà en préparation, on ne peut pas reculer
+    updateDisplay();
+    return;
   }
-  updateDisplay(); document.getElementById("start-btn").innerHTML="Reprendre";
+  
+  let newIndex = currentBlockIndex - 1;
+  if(newIndex < 0) {
+    // Retour à la phase de préparation
+    isSetupPhase = true;
+    currentBlockIndex = -1;
+    timeLeft = setupTime;
+    updateDisplay();
+    return;
+  }
+  
+  currentBlockIndex = newIndex;
+  let block = blocks[currentBlockIndex];
+  if(block.type === 'exercise') {
+    if(block.tempo && block.reps) {
+      timeLeft = 0; // pas de temps pour le tempo
+    } else {
+      let ex = getExerciseById(block.id);
+      timeLeft = block.duration !== undefined ? block.duration : (ex?.workTime || 30);
+    }
+  } else {
+    timeLeft = block.duration;
+  }
+  updateDisplay();
+  // Ne pas redémarrer le minuteur automatiquement, l'utilisateur devra cliquer sur Démarrer
 }
+
 function nextBlock(){
   let blocks=parseSequence(sequenceInputValue);
   if(blocks.length===0) return;
   if(isTempoMode) stopTempoMode();
-  if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); advanceBlock(); return; }
-  if(currentBlockIndex>=blocks.length-1){ currentBlockIndex=blocks.length; if(timerInterval) { clearInterval(timerInterval); timerInterval = null; } beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000); updateDisplay(); return; }
-  advanceBlock();
+  
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  isPaused = false;
+  
+  if(isSetupPhase) {
+    // Quitter la préparation et aller au premier bloc
+    if(blocks.length === 0) return;
+    isSetupPhase = false;
+    currentBlockIndex = 0;
+    let block = blocks[0];
+    if(block.type === 'exercise') {
+      if(block.tempo && block.reps) {
+        timeLeft = 0;
+      } else {
+        let ex = getExerciseById(block.id);
+        timeLeft = block.duration !== undefined ? block.duration : (ex?.workTime || 30);
+      }
+    } else {
+      timeLeft = block.duration;
+    }
+    updateDisplay();
+    return;
+  }
+  
+  // Déjà dans un bloc
+  let newIndex = currentBlockIndex + 1;
+  if(newIndex >= blocks.length) {
+    // Déjà au dernier bloc, on ne fait rien
+    updateDisplay();
+    return;
+  }
+  currentBlockIndex = newIndex;
+  let block = blocks[currentBlockIndex];
+  if(block.type === 'exercise') {
+    if(block.tempo && block.reps) {
+      timeLeft = 0;
+    } else {
+      let ex = getExerciseById(block.id);
+      timeLeft = block.duration !== undefined ? block.duration : (ex?.workTime || 30);
+    }
+  } else {
+    timeLeft = block.duration;
+  }
+  updateDisplay();
 }
 
 // ========== GESTION EXERCICES ==========
@@ -583,7 +677,7 @@ function saveAll(){
 function showAutoSave(msg){ let el=document.getElementById("autosave-status"); if(el){ el.textContent=msg; el.style.opacity=1; setTimeout(()=>el.style.opacity=0,2000);} else console.log(msg); }
 function showError(msg){ let el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; setTimeout(()=>el.style.display="none",6000); }
 
-// ========== SYNCHRONISATION TEMPS RÉEL ==========
+// ========== SYNCHRONISATION ==========
 function syncSequenceFromInput() {
   let newSeq = document.getElementById("sequence-input").value;
   if(newSeq !== sequenceInputValue) {
@@ -603,20 +697,15 @@ function syncSetupFromInput() {
 function syncVoiceFromCheckbox() {
   voiceEnabled = document.getElementById("voice-toggle").checked;
   localStorage.setItem('chronoPro_voice', voiceEnabled);
-  if(voiceEnabled && window.speechSynthesis) {
-    speak("Synthèse vocale activée");
-  }
+  if(voiceEnabled && window.speechSynthesis) speak("Synthèse vocale activée");
 }
 
-// ========== INITIALISATION ==========
+// ========== INIT ==========
 function init(){
   let stored = localStorage.getItem('chronoPro_exercises');
   if(stored) {
-    try {
-      exercises = JSON.parse(stored);
-    } catch(e) { exercises = []; }
+    try { exercises = JSON.parse(stored); } catch(e) { exercises = []; }
   }
-  
   const before = exercises.length;
   exercises = exercises.filter(ex => ex && typeof ex.name === 'string' && ex.name.trim() !== '' && ex.name !== 'undefined' && ex.name !== 'null');
   if (exercises.length === 0 || (before > 0 && exercises.length < before * 0.7)) {
@@ -657,28 +746,21 @@ function init(){
     exercises = defaultExercises.map((ex,idx)=>({ id:idx+1, uid:uuid(), name:ex.name, reps:ex.reps, workTime:ex.workTime, image:ex.image }));
     localStorage.setItem('chronoPro_exercises', JSON.stringify(exercises));
   }
-  
   for(let ex of exercises) if(!ex.uid) ex.uid = uuid();
-  
   sequenceInputValue = localStorage.getItem('chronoPro_sequence') || "30x(4:10-P10)-P30-30x(11:10-P20)-P30-10x(15:40-P30)";
   setupTime = parseInt(localStorage.getItem('chronoPro_setupTime')) || 15;
   voiceEnabled = localStorage.getItem('chronoPro_voice') === 'true';
-  
   cleanSequenceFromMissingIds();
-  
   document.getElementById("sequence-input").value = sequenceInputValue;
   document.getElementById("setup-time").value = setupTime;
   document.getElementById("voice-toggle").checked = voiceEnabled;
-  
   document.getElementById("sequence-input").addEventListener("input", syncSequenceFromInput);
   document.getElementById("setup-time").addEventListener("input", syncSetupFromInput);
   document.getElementById("voice-toggle").addEventListener("change", syncVoiceFromCheckbox);
-  
   loadSavedPrograms();
   renderExercises();
   resetWorkout();
   updateTotalTimeDisplay();
-  
   let infoDiv = document.getElementById("total-time-info");
   if(!infoDiv){
     let p = document.getElementById("config-panel");
@@ -689,7 +771,6 @@ function init(){
     p.appendChild(div);
   }
   updateTotalTimeDisplay();
-  
   document.getElementById("prev-btn").onclick = prevBlock;
   document.getElementById("next-btn").onclick = nextBlock;
   document.getElementById("start-btn").onclick = startWorkout;
@@ -706,7 +787,6 @@ function init(){
   document.getElementById("export-week-btn").onclick = exportWeekText;
   document.getElementById("export-full-btn").onclick = exportFull;
   document.getElementById("clean-exercises-btn").onclick = () => { cleanInvalidExercises(); cleanSequenceFromMissingIds(); resetWorkout(); updateTotalTimeDisplay(); };
-  
   let importFullBtn = document.createElement("button"); importFullBtn.innerHTML = "📥 Importer configuration complète"; importFullBtn.onclick = () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ if(e.target.files[0]) importFull(e.target.files[0]); }; inp.click(); };
   document.querySelector(".advanced-zone .flex-buttons").appendChild(importFullBtn);
 }
