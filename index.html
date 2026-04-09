@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.10 – Pause / Reprise corrigée</title>
+<title>Chrono Pro V9.12 – Correction reprise après tempo</title>
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
@@ -49,7 +49,7 @@
   <button id="pause-btn">⏸ Pause</button>
   <button id="reset-btn">⟳ Réinitialiser</button>
   <button id="config-btn">⚙ Configurer</button>
-  <div class="version">Chrono Pro V9.10 – Pause / Reprise corrigée</div>
+  <div class="version">Chrono Pro V9.12 – Correction reprise après tempo</div>
 </div>
 
 <div id="config-panel" class="config-panel">
@@ -172,7 +172,7 @@ function updateTotalTimeDisplay() {
 
 // ========== TEMPO ==========
 function startTempoMode(block){
-  if(timerInterval) clearInterval(timerInterval);
+  if(timerInterval) { clearInterval(timerInterval); timerInterval = null; } // ← FIX : remettre à null
   if(tempoInterval) clearInterval(tempoInterval);
   isTempoMode=true;
   isPaused=false;
@@ -184,7 +184,7 @@ function startTempoMode(block){
   tempoInterval=setInterval(tempoTick,1000);
 }
 function tempoTick(){
-  if(isPaused) return; // Ne rien faire si en pause
+  if(isPaused) return;
   if(tempoPhases[currentPhase]===0){ nextPhase(); return; }
   tempoPhases[currentPhase]--;
   if(currentPhase===0) beep(300,80); else if(currentPhase===2) beep(800,80); else beep(500,40);
@@ -264,13 +264,14 @@ function advanceBlock(){
   currentBlockIndex++;
   let blocks=parseSequence(sequenceInputValue);
   if(currentBlockIndex>=blocks.length){
-    if(timerInterval) clearInterval(timerInterval);
+    if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000);
     updateDisplay(); return;
   }
   let block=blocks[currentBlockIndex];
   if(block.type==='rest' && currentBlockIndex===blocks.length-1){
-    currentBlockIndex=blocks.length; if(timerInterval) clearInterval(timerInterval);
+    currentBlockIndex=blocks.length; 
+    if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000);
     updateDisplay(); return;
   }
@@ -279,9 +280,15 @@ function advanceBlock(){
     else { let ex=getExerciseById(block.id); timeLeft=block.duration!==undefined?block.duration:(ex?.workTime||30); beep(880,350); }
   } else { timeLeft=block.duration; beep(660,450); }
   updateDisplay();
+  
+  // FORCER le redémarrage du minuteur pour les blocs non-tempo (y compris repos)
+  if (!isTempoMode && !isPaused) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    timerInterval = setInterval(timerTick, 1000);
+  }
 }
 function timerTick(){
-  if(isPaused) return; // Ne pas décrémenter si en pause
+  if(isPaused) return;
   if(timeLeft<=5 && timeLeft>0) beep(440+timeLeft*80,120);
   if(timeLeft>0){ timeLeft--; document.getElementById("timer").innerHTML=formatMMSS(timeLeft); return; }
   if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); }
@@ -291,11 +298,9 @@ function startWorkout(){
   getAudioContext();
   if(window.speechSynthesis) { window.speechSynthesis.cancel(); }
   
-  // Gestion de la reprise après pause (mode tempo ou durée)
   if(isPaused) {
     isPaused = false;
     if(isTempoMode && tempoInterval === null) {
-      // Redémarrer l'intervalle tempo
       tempoInterval = setInterval(tempoTick, 1000);
     } else if(!isTempoMode && timerInterval === null) {
       timerInterval = setInterval(timerTick, 1000);
@@ -305,11 +310,9 @@ function startWorkout(){
     return;
   }
   
-  if(isTempoMode) return; // déjà en cours
-  
+  if(isTempoMode) return;
   if(timerInterval && !isPaused) return;
   
-  // Si en phase de préparation ou arrêt complet
   if(isSetupPhase || currentBlockIndex === -1 || timerInterval === null) {
     resetWorkout();
     timerInterval = setInterval(timerTick, 1000);
@@ -318,7 +321,6 @@ function startWorkout(){
     return;
   }
   
-  // Cas normal
   timerInterval = setInterval(timerTick, 1000);
   updateDisplay();
 }
@@ -374,7 +376,7 @@ function nextBlock(){
   if(blocks.length===0) return;
   if(isTempoMode) stopTempoMode();
   if(isSetupPhase){ isSetupPhase=false; currentBlockIndex=-1; beep(1000,500); advanceBlock(); return; }
-  if(currentBlockIndex>=blocks.length-1){ currentBlockIndex=blocks.length; if(timerInterval) clearInterval(timerInterval); beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000); updateDisplay(); return; }
+  if(currentBlockIndex>=blocks.length-1){ currentBlockIndex=blocks.length; if(timerInterval) { clearInterval(timerInterval); timerInterval = null; } beep(1200,400); setTimeout(()=>beep(1400,400),500); setTimeout(()=>beep(1600,800),1000); updateDisplay(); return; }
   advanceBlock();
 }
 
