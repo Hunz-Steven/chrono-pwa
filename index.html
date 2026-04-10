@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Chrono Pro V9.14 – Reprise tempo et navigation corrigées</title>
+<title>Chrono Pro V9.16 – Import complet corrigé (programmes restaurés)</title>
 <style>
   body{font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;margin:0;background:#f0f0f0;padding:20px 0}
   #workout-container{text-align:center;background:white;padding:25px;border-radius:12px;box-shadow:0 6px 12px rgba(0,0,0,.15);max-width:600px;width:90%}
@@ -49,7 +49,7 @@
   <button id="pause-btn">⏸ Pause</button>
   <button id="reset-btn">⟳ Réinitialiser</button>
   <button id="config-btn">⚙ Configurer</button>
-  <div class="version">Chrono Pro V9.14 – Reprise tempo et navigation corrigées</div>
+  <div class="version">Chrono Pro V9.16 – Import complet corrigé (programmes restaurés)</div>
 </div>
 
 <div id="config-panel" class="config-panel">
@@ -76,13 +76,16 @@
         <button id="delete-program-btn">🗑 Supprimer</button>
       </div>
       <div class="flex-buttons" style="margin-top:10px">
-        <button id="export-program-btn">📤 Exporter ce programme (fichier)</button>
-        <button id="import-program-btn">📥 Importer un programme (fichier)</button>
-        <button id="export-week-btn">📄 Exporter la semaine (texte)</button>
-        <button id="export-full-btn">💾 Exporter toute la configuration</button>
-        <button id="clean-exercises-btn" class="clean-btn">🧹 Nettoyer exos invalides</button>
+        <button id="export-program-btn">📤 Exporter séquence d'entrainement (fichier)</button>
+        <button id="import-program-btn">📥 Importer séquence d'entrainement (fichier)</button>
+        <button id="export-week-btn">📄 Exporter séquence d'entrainement (texte)</button>
+        <button id="export-all-programs-btn">📦 Exporter tous les programmes sauvegardés</button>
+        <button id="import-programs-btn">📥 Importer des programmes (fichier)</button>
+        <button id="export-full-btn">💾 Exporter toute la configuration (exercices + programmes + réglages)</button>
+        <button id="clean-exercises-btn" class="clean-btn" title="Supprime les exercices dont le nom est vide, 'undefined' ou 'null' (utile après un import corrompu)">🧹 Nettoyer exos invalides</button>
       </div>
       <div class="help">• Exporter un programme : partagez seulement la séquence et les exercices liés. L'import fusionne avec vos exercices existants (via UUID).<br>
+      • Exporter tous les programmes : sauvegarde la liste complète de vos programmes (noms + séquences + temps de préparation).<br>
       • Exporter toute la configuration : sauvegarde complète de l'application (exercices, programmes, réglages).</div>
     </details>
   </div>
@@ -388,19 +391,16 @@ function prevBlock(){
   if(blocks.length===0) return;
   if(isTempoMode) stopTempoMode();
   
-  // Stoppe le minuteur s'il tourne
   if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-  isPaused = false; // On sort de la pause si on navigue manuellement
+  isPaused = false;
   
   if(isSetupPhase) {
-    // Déjà en préparation, on ne peut pas reculer
     updateDisplay();
     return;
   }
   
   let newIndex = currentBlockIndex - 1;
   if(newIndex < 0) {
-    // Retour à la phase de préparation
     isSetupPhase = true;
     currentBlockIndex = -1;
     timeLeft = setupTime;
@@ -412,7 +412,7 @@ function prevBlock(){
   let block = blocks[currentBlockIndex];
   if(block.type === 'exercise') {
     if(block.tempo && block.reps) {
-      timeLeft = 0; // pas de temps pour le tempo
+      timeLeft = 0;
     } else {
       let ex = getExerciseById(block.id);
       timeLeft = block.duration !== undefined ? block.duration : (ex?.workTime || 30);
@@ -421,7 +421,6 @@ function prevBlock(){
     timeLeft = block.duration;
   }
   updateDisplay();
-  // Ne pas redémarrer le minuteur automatiquement, l'utilisateur devra cliquer sur Démarrer
 }
 
 function nextBlock(){
@@ -433,7 +432,6 @@ function nextBlock(){
   isPaused = false;
   
   if(isSetupPhase) {
-    // Quitter la préparation et aller au premier bloc
     if(blocks.length === 0) return;
     isSetupPhase = false;
     currentBlockIndex = 0;
@@ -452,10 +450,8 @@ function nextBlock(){
     return;
   }
   
-  // Déjà dans un bloc
   let newIndex = currentBlockIndex + 1;
   if(newIndex >= blocks.length) {
-    // Déjà au dernier bloc, on ne fait rien
     updateDisplay();
     return;
   }
@@ -638,6 +634,58 @@ function importProgramFile(file){
   };
   reader.readAsText(file);
 }
+function exportAllPrograms() {
+  if(savedPrograms.length === 0) {
+    alert("Aucun programme sauvegardé à exporter.");
+    return;
+  }
+  let data = savedPrograms.map(p => ({ name: p.name, sequence: p.sequence, setupTime: p.setupTime }));
+  let blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tous_programmes_${new Date().toISOString().slice(0,19)}.json`;
+  a.click();
+  URL.revokeObjectURL(blob.href);
+  showAutoSave("Tous les programmes ont été exportés.");
+}
+function importPrograms(file) {
+  let reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      let imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error("Le fichier doit contenir un tableau de programmes.");
+      let count = 0;
+      for (let prog of imported) {
+        if (!prog.name || !prog.sequence) continue;
+        let existing = savedPrograms.find(p => p.name === prog.name);
+        if (existing) {
+          if (confirm(`Le programme "${prog.name}" existe déjà. Écraser ?`)) {
+            existing.sequence = prog.sequence;
+            existing.setupTime = prog.setupTime !== undefined ? prog.setupTime : 15;
+            count++;
+          }
+        } else {
+          savedPrograms.push({
+            name: prog.name,
+            sequence: prog.sequence,
+            setupTime: prog.setupTime !== undefined ? prog.setupTime : 15
+          });
+          count++;
+        }
+      }
+      if (count > 0) {
+        localStorage.setItem('chronoPro_savedPrograms', JSON.stringify(savedPrograms));
+        loadSavedPrograms();
+        showAutoSave(`${count} programme(s) importé(s) avec succès.`);
+      } else {
+        showAutoSave("Aucun programme nouveau n'a été importé.");
+      }
+    } catch(err) {
+      alert("Erreur lors de l'import des programmes : " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
 function exportWeekText(){
   let content="=== Programme de la semaine ===\n\n";
   content+=`Séquence :\n${sequenceInputValue}\n\nTemps total : ${Math.floor(totalTime()/60)}m ${totalTime()%60}s\n\nExercices utilisés :\n`;
@@ -657,11 +705,29 @@ function importFull(file){
   reader.onload=ev=>{
     try{
       let data=JSON.parse(ev.target.result);
-      exercises=data.exercises||[]; sequenceInputValue=data.sequence||sequenceInputValue; setupTime=data.setupTime||setupTime; voiceEnabled=data.voiceEnabled||false; savedPrograms=data.savedPrograms||[];
-      saveAll(); renderExercises(); document.getElementById("sequence-input").value=sequenceInputValue; document.getElementById("setup-time").value=setupTime; document.getElementById("voice-toggle").checked=voiceEnabled; loadSavedPrograms(); alert("Import complet réussi");
+      exercises=data.exercises||[]; 
+      sequenceInputValue=data.sequence||sequenceInputValue; 
+      setupTime=data.setupTime||setupTime; 
+      voiceEnabled=data.voiceEnabled||false; 
+      savedPrograms=data.savedPrograms||[];
+      
+      // Sauvegarde complète dans localStorage
+      localStorage.setItem('chronoPro_exercises', JSON.stringify(exercises));
+      localStorage.setItem('chronoPro_sequence', sequenceInputValue);
+      localStorage.setItem('chronoPro_setupTime', setupTime);
+      localStorage.setItem('chronoPro_voice', voiceEnabled);
+      localStorage.setItem('chronoPro_savedPrograms', JSON.stringify(savedPrograms));
+      
+      // Recharge l'interface
+      renderExercises(); 
+      document.getElementById("sequence-input").value = sequenceInputValue; 
+      document.getElementById("setup-time").value = setupTime; 
+      document.getElementById("voice-toggle").checked = voiceEnabled; 
+      loadSavedPrograms(); 
       resetWorkout();
       updateTotalTimeDisplay();
-    } catch(err){ alert("Fichier invalide"); }
+      alert("Import complet réussi (exercices, séquence, réglages et programmes restaurés).");
+    } catch(err){ alert("Fichier invalide : " + err.message); }
   };
   reader.readAsText(file);
 }
@@ -670,6 +736,7 @@ function saveAll(){
   localStorage.setItem('chronoPro_sequence', sequenceInputValue);
   localStorage.setItem('chronoPro_setupTime', setupTime);
   localStorage.setItem('chronoPro_voice', voiceEnabled);
+  // Ne pas écraser les programmes ici, car ils sont gérés séparément
   updateTotalTimeDisplay();
   showAutoSave("✓ Sauvegardé");
   updateDisplay();
@@ -787,6 +854,8 @@ function init(){
   document.getElementById("export-week-btn").onclick = exportWeekText;
   document.getElementById("export-full-btn").onclick = exportFull;
   document.getElementById("clean-exercises-btn").onclick = () => { cleanInvalidExercises(); cleanSequenceFromMissingIds(); resetWorkout(); updateTotalTimeDisplay(); };
+  document.getElementById("export-all-programs-btn").onclick = exportAllPrograms;
+  document.getElementById("import-programs-btn").onclick = () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ if(e.target.files[0]) importPrograms(e.target.files[0]); }; inp.click(); };
   let importFullBtn = document.createElement("button"); importFullBtn.innerHTML = "📥 Importer configuration complète"; importFullBtn.onclick = () => { let inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ if(e.target.files[0]) importFull(e.target.files[0]); }; inp.click(); };
   document.querySelector(".advanced-zone .flex-buttons").appendChild(importFullBtn);
 }
